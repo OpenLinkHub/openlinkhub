@@ -1,0 +1,27 @@
+server:
+  port: 18080
+
+spring:
+  application:
+    name: openlinkhub-iot-backend
+  datasource:
+    url: jdbc:postgresql://${OLH_DB_HOST:localhost}:${OLH_DB_PORT:5432}/${OLH_DB_NAME:openlinkhub_iot}
+    username: ${OLH_DB_USER:iot_user}
+    password: ${OLH_DB_PASSWORD:iot_password}
+    driver-class-name: org.postgresql.Driver
+  sql:
+    init:
+      mode: always
+      continue-on-error: false
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+
+openlinkhub:
+  cors:
+    allowed-origin-patterns:
+      - http://localhost:*
+      - http://127.0.0.1:*

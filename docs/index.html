@@ -1,0 +1,311 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>OpenLinkHub - IoT Core</title>
+    <meta
+      name="description"
+      content="OpenLinkHub 是一个开源的设备、数据与系统连接中枢，面向物联网、边缘计算和行业数字化场景。"
+    />
+    <style>
+      :root {
+        color: #172033;
+        background: #eef5f8;
+        font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        min-width: 1180px;
+        background:
+          radial-gradient(circle at 15% 10%, rgba(0, 212, 255, 0.18), transparent 30%),
+          radial-gradient(circle at 82% 18%, rgba(34, 197, 94, 0.13), transparent 26%),
+          linear-gradient(135deg, #f8fbff 0%, #eef5f8 54%, #e6edf4 100%);
+      }
+
+      a {
+        color: inherit;
+        text-decoration: none;
+      }
+
+      .page {
+        width: 1120px;
+        margin: 0 auto;
+        padding: 28px 0 56px;
+      }
+
+      .nav {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 72px;
+      }
+
+      .brand {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        font-weight: 800;
+      }
+
+      .mark {
+        display: grid;
+        place-items: center;
+        width: 42px;
+        height: 42px;
+        border-radius: 12px;
+        background: #0e1116;
+        color: #00d4ff;
+        box-shadow: 0 16px 36px rgba(14, 17, 22, 0.18);
+      }
+
+      .links {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+      }
+
+      .link,
+      .button {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        height: 40px;
+        padding: 0 16px;
+        border-radius: 8px;
+        font-weight: 700;
+      }
+
+      .link {
+        color: #607086;
+      }
+
+      .button {
+        background: #0e1116;
+        color: white;
+        box-shadow: 0 14px 30px rgba(14, 17, 22, 0.18);
+      }
+
+      .hero {
+        display: grid;
+        grid-template-columns: 1fr 430px;
+        gap: 56px;
+        align-items: center;
+      }
+
+      .eyebrow {
+        margin: 0 0 14px;
+        color: #0084a1;
+        font-size: 13px;
+        font-weight: 800;
+      }
+
+      h1 {
+        margin: 0;
+        color: #111827;
+        font-size: 68px;
+        line-height: 0.98;
+        letter-spacing: 0;
+      }
+
+      .hero-copy {
+        margin: 24px 0 0;
+        max-width: 620px;
+        color: #53657c;
+        font-size: 19px;
+        line-height: 1.7;
+      }
+
+      .hero-actions {
+        display: flex;
+        gap: 12px;
+        margin-top: 34px;
+      }
+
+      .secondary {
+        border: 1px solid #ccd8e6;
+        background: rgba(255, 255, 255, 0.76);
+        color: #172033;
+      }
+
+      .panel {
+        border: 1px solid rgba(199, 210, 224, 0.9);
+        border-radius: 8px;
+        background: rgba(255, 255, 255, 0.78);
+        box-shadow: 0 20px 58px rgba(26, 37, 56, 0.1);
+      }
+
+      .signal-map {
+        position: relative;
+        height: 380px;
+        overflow: hidden;
+        background:
+          linear-gradient(90deg, rgba(148, 163, 184, 0.17) 1px, transparent 1px),
+          linear-gradient(0deg, rgba(148, 163, 184, 0.17) 1px, transparent 1px),
+          radial-gradient(circle at center, rgba(0, 212, 255, 0.18), transparent 48%),
+          #101721;
+        background-size: 42px 42px, 42px 42px, auto, auto;
+      }
+
+      .signal-map::before,
+      .signal-map::after {
+        content: "";
+        position: absolute;
+        border: 1px solid rgba(0, 212, 255, 0.22);
+        border-radius: 50%;
+      }
+
+      .signal-map::before {
+        inset: 80px 58px;
+      }
+
+      .signal-map::after {
+        inset: 124px 112px;
+        border-color: rgba(255, 176, 32, 0.22);
+      }
+
+      .node {
+        position: absolute;
+        display: grid;
+        place-items: center;
+        min-width: 104px;
+        height: 46px;
+        padding: 0 14px;
+        border: 1px solid rgba(255, 255, 255, 0.14);
+        border-radius: 8px;
+        background: rgba(255, 255, 255, 0.1);
+        color: #e6f7ff;
+        font-weight: 800;
+      }
+
+      .node.core {
+        left: 50%;
+        top: 50%;
+        width: 128px;
+        height: 128px;
+        transform: translate(-50%, -50%);
+        border-color: rgba(0, 212, 255, 0.42);
+        background: rgba(0, 212, 255, 0.16);
+      }
+
+      .node.device { left: 36px; top: 82px; }
+      .node.sensor { right: 34px; top: 88px; }
+      .node.rule { left: 54px; bottom: 72px; color: #ffe8b0; }
+      .node.api { right: 54px; bottom: 68px; color: #b9f8cc; }
+
+      .features {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 14px;
+        margin-top: 72px;
+      }
+
+      .feature {
+        padding: 18px;
+      }
+
+      .feature strong {
+        display: block;
+        margin-bottom: 10px;
+        color: #111827;
+      }
+
+      .feature p {
+        margin: 0;
+        color: #607086;
+        line-height: 1.6;
+      }
+
+      .section {
+        margin-top: 76px;
+      }
+
+      .section h2 {
+        margin: 0 0 18px;
+        font-size: 30px;
+      }
+
+      .code {
+        padding: 18px;
+        overflow: auto;
+        background: #0e1116;
+        color: #dffbff;
+        line-height: 1.7;
+      }
+    </style>
+  </head>
+  <body>
+    <main class="page">
+      <nav class="nav">
+        <a class="brand" href="#">
+          <span class="mark">OLH</span>
+          <span>OpenLinkHub</span>
+        </a>
+        <div class="links">
+          <a class="link" href="./architecture.md">Architecture</a>
+          <a class="link" href="./api.md">API</a>
+          <a class="button" href="https://github.com/">GitHub</a>
+        </div>
+      </nav>
+
+      <section class="hero">
+        <div>
+          <p class="eyebrow">Open-source connectivity hub for IoT operations</p>
+          <h1>连接设备、传感器、数据与规则</h1>
+          <p class="hero-copy">
+            OpenLinkHub IoT Core 提供设备管理、传感器绑定、HTTP 数据上报、时序数据存储、
+            规则告警、状态查看和历史数据导出能力，帮助开发者快速构建设备互联与数据协同平台。
+          </p>
+          <div class="hero-actions">
+            <a class="button" href="#quickstart">快速开始</a>
+            <a class="button secondary" href="./api.md">查看 API</a>
+          </div>
+        </div>
+
+        <div class="panel signal-map" aria-label="OpenLinkHub connectivity map">
+          <div class="node core">Hub</div>
+          <div class="node device">Devices</div>
+          <div class="node sensor">Sensors</div>
+          <div class="node rule">Rules</div>
+          <div class="node api">API</div>
+        </div>
+      </section>
+
+      <section class="features">
+        <article class="panel feature">
+          <strong>设备与传感器</strong>
+          <p>管理设备基础信息，绑定温度、湿度、电量、GPS 等多类传感器。</p>
+        </article>
+        <article class="panel feature">
+          <strong>时序数据</strong>
+          <p>基于 TimescaleDB 存储遥测数据，支持按设备、传感器和时间范围查询。</p>
+        </article>
+        <article class="panel feature">
+          <strong>规则告警</strong>
+          <p>配置阈值规则，数据上报时自动判断并生成告警。</p>
+        </article>
+        <article class="panel feature">
+          <strong>Web 控制台</strong>
+          <p>提供列表、筛选、分页、弹窗编辑、状态查看和 CSV 导出。</p>
+        </article>
+      </section>
+
+      <section class="section" id="quickstart">
+        <h2>快速开始</h2>
+        <pre class="panel code"><code>PGPASSWORD=iot_password psql -h localhost -p 5432 -U iot_user -d postgres -f deploy/create-database.sql
+
+cd backend
+mvn spring-boot:run
+
+cd ../console
+npm install
+npm run dev</code></pre>
+      </section>
+    </main>
+  </body>
+</html>

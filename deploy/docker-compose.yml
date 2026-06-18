@@ -1,0 +1,15 @@
+services:
+  timescaledb:
+    image: timescale/timescaledb:latest-pg16
+    container_name: openlinkhub-timescaledb
+    environment:
+      POSTGRES_USER: iot_user
+      POSTGRES_PASSWORD: iot_password
+      POSTGRES_DB: openlinkhub_iot
+    ports:
+      - "5432:5432"
+    volumes:
+      - openlinkhub_timescale_data:/var/lib/postgresql/data
+
+volumes:
+  openlinkhub_timescale_data:

@@ -1,0 +1,56 @@
+<svg width="1024" height="1024" viewBox="0 0 1024 1024" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <title>OpenLinkHub icon</title>
+  <desc>Open connection hub mark with realtime voice pulse and linked provider nodes.</desc>
+  <defs>
+    <linearGradient id="cyanArc" x1="132" y1="512" x2="512" y2="132" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#00D4FF"/>
+      <stop offset="1" stop-color="#38E8FF"/>
+    </linearGradient>
+    <linearGradient id="greenArc" x1="512" y1="132" x2="892" y2="512" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#8CF65F"/>
+      <stop offset="1" stop-color="#22C55E"/>
+    </linearGradient>
+    <linearGradient id="amberArc" x1="512" y1="892" x2="892" y2="512" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#FFB020"/>
+      <stop offset="1" stop-color="#22C55E"/>
+    </linearGradient>
+    <linearGradient id="linkLine" x1="152" y1="512" x2="872" y2="512" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#00D4FF"/>
+      <stop offset="0.5" stop-color="#F5F7FA"/>
+      <stop offset="1" stop-color="#22C55E"/>
+    </linearGradient>
+    <filter id="softShadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="24" stdDeviation="28" flood-color="#000000" flood-opacity="0.28"/>
+    </filter>
+  </defs>
+
+  <rect width="1024" height="1024" rx="224" fill="#0E1116"/>
+
+  <g filter="url(#softShadow)">
+    <path d="M312 272C247 329 208 414 208 512" stroke="url(#cyanArc)" stroke-width="72" stroke-linecap="butt"/>
+    <path d="M312 752C247 695 208 610 208 512" stroke="url(#cyanArc)" stroke-width="72" stroke-linecap="butt"/>
+    <path d="M712 272C777 329 816 414 816 512" stroke="url(#greenArc)" stroke-width="72" stroke-linecap="butt"/>
+    <path d="M712 752C777 695 816 610 816 512" stroke="url(#amberArc)" stroke-width="72" stroke-linecap="butt"/>
+
+    <path d="M512 184V398" stroke="#F5F7FA" stroke-width="54" stroke-linecap="round"/>
+    <path d="M512 626V840" stroke="#F5F7FA" stroke-width="54" stroke-linecap="round"/>
+    <path d="M184 512H398" stroke="url(#linkLine)" stroke-width="54" stroke-linecap="round"/>
+    <path d="M626 512H840" stroke="url(#linkLine)" stroke-width="54" stroke-linecap="round"/>
+
+    <circle cx="512" cy="512" r="128" fill="#0E1116" stroke="#F5F7FA" stroke-width="44"/>
+    <circle cx="512" cy="512" r="63" fill="#111A22"/>
+
+    <path d="M448 524V500" stroke="#00D4FF" stroke-width="22" stroke-linecap="round"/>
+    <path d="M480 552V472" stroke="#00D4FF" stroke-width="22" stroke-linecap="round"/>
+    <path d="M512 574V450" stroke="#38E8FF" stroke-width="22" stroke-linecap="round"/>
+    <path d="M544 552V472" stroke="#00D4FF" stroke-width="22" stroke-linecap="round"/>
+    <path d="M576 524V500" stroke="#00D4FF" stroke-width="22" stroke-linecap="round"/>
+
+    <circle cx="512" cy="184" r="56" fill="#F5F7FA"/>
+    <circle cx="512" cy="840" r="38" fill="#0E1116" stroke="#FFB020" stroke-width="36"/>
+    <circle cx="184" cy="512" r="38" fill="#0E1116" stroke="#00D4FF" stroke-width="36"/>
+    <circle cx="840" cy="512" r="38" fill="#0E1116" stroke="#22C55E" stroke-width="36"/>
+
+    <circle cx="512" cy="512" r="220" stroke="#6B7C93" stroke-width="12" stroke-linecap="round" stroke-dasharray="1 34" opacity="0.55"/>
+  </g>
+</svg>

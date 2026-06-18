@@ -1,0 +1,1149 @@
+<template>
+  <div class="shell">
+    <aside class="sidebar">
+      <div class="brand">
+        <img src="./assets/openlinkhub-icon.svg" alt="OpenLinkHub" />
+        <div>
+          <strong>OpenLinkHub</strong>
+          <span>IoT Core</span>
+        </div>
+      </div>
+
+      <nav>
+        <button
+          v-for="item in navItems"
+          :key="item.key"
+          :class="{ active: activeView === item.key }"
+          @click="switchView(item.key)"
+          :title="item.label"
+        >
+          <component :is="item.icon" :size="18" />
+          <span>{{ item.label }}</span>
+        </button>
+      </nav>
+
+      <div class="edge-card">
+        <div class="pulse"></div>
+        <span>Core API</span>
+        <strong>{{ health.status || 'CHECKING' }}</strong>
+      </div>
+    </aside>
+
+    <main>
+      <header class="topbar">
+        <div>
+          <p class="eyebrow">Signal Operations Console</p>
+          <h1>{{ currentTitle }}</h1>
+        </div>
+        <div class="top-actions">
+          <button class="icon-button" @click="refreshAll" title="刷新数据">
+            <RefreshCw :size="18" />
+          </button>
+          <button class="primary-button" @click="sendDemoTelemetry">
+            <Radio :size="17" />
+            模拟上报
+          </button>
+        </div>
+      </header>
+
+      <p v-if="error" class="notice error">{{ error }}</p>
+      <p v-if="toast" class="notice success">{{ toast }}</p>
+
+      <section v-if="activeView === 'overview'" class="view overview-grid">
+        <div class="signal-panel">
+          <div class="panel-title">
+            <div>
+              <p class="eyebrow">Connection Map</p>
+              <h2>设备、传感器与数据流</h2>
+            </div>
+            <span class="live-dot">Live</span>
+          </div>
+          <div class="hub-map">
+            <div class="node core">
+              <img src="./assets/openlinkhub-icon.svg" alt="" />
+              <strong>Hub</strong>
+            </div>
+            <div class="node device">Devices</div>
+            <div class="node rule">Rules</div>
+            <div class="node alarm">Alarms</div>
+            <div class="node api">API</div>
+          </div>
+        </div>
+
+        <div class="metric-grid">
+          <article v-for="metric in metrics" :key="metric.label" class="metric-card">
+            <component :is="metric.icon" :size="20" />
+            <span>{{ metric.label }}</span>
+            <strong>{{ metric.value }}</strong>
+          </article>
+        </div>
+
+        <div class="panel span-2">
+          <div class="panel-title">
+            <h2>最近数据</h2>
+            <button class="ghost-button" @click="switchView('device-status')">查看状态</button>
+          </div>
+          <div class="data-stream">
+            <div v-for="point in summary.recentTelemetry || []" :key="`${point.deviceId}-${point.metric}-${point.time}`" class="stream-row">
+              <span class="stream-time">{{ formatTime(point.time) }}</span>
+              <strong>{{ point.metric }}</strong>
+              <span>{{ displayValue(point) }}</span>
+            </div>
+            <div v-if="!summary.recentTelemetry?.length" class="empty">暂无数据，点击“模拟上报”开始。</div>
+          </div>
+        </div>
+      </section>
+
+      <section v-if="activeView === 'products'" class="view">
+        <div class="panel">
+          <div class="table-toolbar">
+            <div>
+              <p class="eyebrow">Product Registry</p>
+              <h2>产品列表</h2>
+            </div>
+            <button class="primary-button" @click="openProductModal()">
+              <Plus :size="17" />
+              新建产品
+            </button>
+          </div>
+          <div class="filter-row product-filter">
+            <input v-model="productQuery.keyword" placeholder="搜索名称 / 编码 / 描述" @keyup.enter="loadProducts(1)" />
+            <input v-model="productQuery.category" placeholder="分类" @keyup.enter="loadProducts(1)" />
+            <button class="primary-button" @click="loadProducts(1)"><Search :size="17" /> 查询</button>
+            <button class="ghost-button" @click="resetProducts">重置</button>
+          </div>
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>产品名称</th>
+                <th>编码</th>
+                <th>分类</th>
+                <th>描述</th>
+                <th>创建时间</th>
+                <th class="actions-col">操作</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="product in products" :key="product.id">
+                <td><strong>{{ product.name }}</strong></td>
+                <td><code>{{ product.code }}</code></td>
+                <td>{{ product.category }}</td>
+                <td>{{ product.description || '-' }}</td>
+                <td>{{ formatDate(product.createdAt) }}</td>
+                <td>
+                  <button class="table-action" @click="openProductModal(product)">
+                    <Edit3 :size="15" /> 编辑
+                  </button>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+          <Pagination :page="productPage.page" :size="productPage.size" :total="productPage.total" @change="loadProducts" />
+        </div>
+      </section>
+
+      <section v-if="activeView === 'device-management'" class="view">
+        <div class="panel">
+          <div class="table-toolbar">
+            <div>
+              <p class="eyebrow">Device Registry</p>
+              <h2>设备管理</h2>
+            </div>
+            <button class="primary-button" @click="openDeviceModal()">
+              <Plus :size="17" />
+              新建设备
+            </button>
+          </div>
+          <div class="filter-row device-filter">
+            <input v-model="deviceQuery.keyword" placeholder="搜索名称 / Key / 位置" @keyup.enter="loadDevices(1)" />
+            <select v-model="deviceQuery.productId">
+              <option value="">全部产品</option>
+              <option v-for="product in products" :key="product.id" :value="product.id">{{ product.name }}</option>
+            </select>
+            <select v-model="deviceQuery.status">
+              <option value="">全部状态</option>
+              <option value="online">online</option>
+              <option value="offline">offline</option>
+            </select>
+            <button class="primary-button" @click="loadDevices(1)"><Search :size="17" /> 查询</button>
+            <button class="ghost-button" @click="resetDevices">重置</button>
+          </div>
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>设备名称</th>
+                <th>Device Key</th>
+                <th>产品</th>
+                <th>位置 / GPS</th>
+                <th>状态</th>
+                <th>最后上报</th>
+                <th class="actions-col xwide">操作</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="device in devices" :key="device.id">
+                <td><strong>{{ device.name }}</strong></td>
+                <td><code>{{ device.deviceKey }}</code></td>
+                <td>{{ device.productName }}</td>
+                <td>{{ device.location || '-' }}</td>
+                <td><span :class="['status-pill', device.status]">{{ device.status }}</span></td>
+                <td>{{ formatDate(device.lastSeenAt) }}</td>
+                <td>
+                  <button class="table-action" @click="openDeviceModal(device)">
+                    <Edit3 :size="15" /> 编辑
+                  </button>
+                  <button class="table-action" @click="openSensorManager(device)">
+                    <SlidersHorizontal :size="15" /> 传感器
+                  </button>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+          <Pagination :page="devicePage.page" :size="devicePage.size" :total="devicePage.total" @change="loadDevices" />
+        </div>
+      </section>
+
+      <section v-if="activeView === 'device-status'" class="view">
+        <div class="panel">
+          <div class="table-toolbar">
+            <div>
+              <p class="eyebrow">Realtime State</p>
+              <h2>设备状态查看</h2>
+            </div>
+          </div>
+          <div class="filter-row device-filter">
+            <input v-model="deviceQuery.keyword" placeholder="搜索名称 / Key / 位置" @keyup.enter="loadDevices(1)" />
+            <select v-model="deviceQuery.status">
+              <option value="">全部状态</option>
+              <option value="online">online</option>
+              <option value="offline">offline</option>
+            </select>
+            <button class="primary-button" @click="loadDevices(1)"><Search :size="17" /> 查询</button>
+            <button class="ghost-button" @click="resetDevices">重置</button>
+          </div>
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>设备</th>
+                <th>Device Key</th>
+                <th>位置 / GPS</th>
+                <th>在线状态</th>
+                <th>最后上报</th>
+                <th>最新传感器状态</th>
+                <th class="actions-col">操作</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="device in devices" :key="device.id">
+                <td><strong>{{ device.name }}</strong></td>
+                <td><code>{{ device.deviceKey }}</code></td>
+                <td>{{ device.location || '-' }}</td>
+                <td><span :class="['status-pill', device.status]">{{ device.status }}</span></td>
+                <td>{{ formatDate(device.lastSeenAt) }}</td>
+                <td>{{ latestSummary(device.id) }}</td>
+                <td>
+                  <button class="table-action" @click="openDeviceStatus(device)">
+                    <Eye :size="15" /> 查看状态
+                  </button>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+          <Pagination :page="devicePage.page" :size="devicePage.size" :total="devicePage.total" @change="loadDevices" />
+        </div>
+      </section>
+
+      <section v-if="activeView === 'history'" class="view">
+        <div class="panel">
+          <div class="table-toolbar">
+            <div>
+              <p class="eyebrow">Telemetry History</p>
+              <h2>历史数据分析</h2>
+            </div>
+            <button class="primary-button" :disabled="!historyRows.length" @click="exportHistoryCsv">
+              <Download :size="17" />
+              导出 CSV
+            </button>
+          </div>
+          <div class="filter-row">
+            <select v-model.number="historyFilter.deviceId" @change="loadHistorySensors">
+              <option disabled value="">选择设备</option>
+              <option v-for="device in devices" :key="device.id" :value="device.id">{{ device.name }} / {{ device.deviceKey }}</option>
+            </select>
+            <select v-model="historyFilter.metric">
+              <option value="">全部传感器</option>
+              <option v-for="sensor in historySensors" :key="sensor.id" :value="sensor.sensorKey">
+                {{ sensor.name }} / {{ sensor.sensorKey }}
+              </option>
+            </select>
+            <input v-model="historyFilter.start" type="datetime-local" />
+            <input v-model="historyFilter.end" type="datetime-local" />
+            <button class="primary-button" @click="queryHistory">
+              <Search :size="17" />
+              查询
+            </button>
+          </div>
+          <div class="filter-row rule-filter">
+            <input v-model="ruleQuery.keyword" placeholder="搜索规则名称 / 描述" @keyup.enter="loadRules(1)" />
+            <input v-model="ruleQuery.deviceKey" placeholder="设备 Key" @keyup.enter="loadRules(1)" />
+            <input v-model="ruleQuery.metric" placeholder="传感器 Key" @keyup.enter="loadRules(1)" />
+            <select v-model="ruleQuery.enabled">
+              <option value="">全部状态</option>
+              <option value="true">enabled</option>
+              <option value="false">disabled</option>
+            </select>
+            <button class="primary-button" @click="loadRules(1)"><Search :size="17" /> 查询</button>
+            <button class="ghost-button" @click="resetRules">重置</button>
+          </div>
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>时间</th>
+                <th>设备 ID</th>
+                <th>传感器 Key</th>
+                <th>数值</th>
+                <th>文本值</th>
+                <th>类型</th>
+                <th>质量</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="row in historyRows" :key="`${row.deviceId}-${row.metric}-${row.time}`">
+                <td>{{ formatDate(row.time) }}</td>
+                <td>{{ row.deviceId }}</td>
+                <td><code>{{ row.metric }}</code></td>
+                <td>{{ row.numericValue ?? '-' }}</td>
+                <td>{{ row.textValue || '-' }}</td>
+                <td>{{ row.valueType }}</td>
+                <td>{{ row.quality }}</td>
+              </tr>
+              <tr v-if="!historyRows.length">
+                <td colspan="7" class="table-empty">请选择设备和时间范围查询历史数据。</td>
+              </tr>
+            </tbody>
+          </table>
+          <Pagination :page="rulePage.page" :size="rulePage.size" :total="rulePage.total" @change="loadRules" />
+        </div>
+      </section>
+
+      <section v-if="activeView === 'rules'" class="view">
+        <div class="panel">
+          <div class="table-toolbar">
+            <div>
+              <p class="eyebrow">Automation Rules</p>
+              <h2>阈值规则</h2>
+            </div>
+            <button class="primary-button" @click="openRuleModal()">
+              <Plus :size="17" />
+              新建规则
+            </button>
+          </div>
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>规则名称</th>
+                <th>设备范围</th>
+                <th>传感器 Key</th>
+                <th>条件</th>
+                <th>等级</th>
+                <th>状态</th>
+                <th class="actions-col wide">操作</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="rule in rules" :key="rule.id">
+                <td><strong>{{ rule.name }}</strong></td>
+                <td>{{ rule.deviceKey || '所有设备' }}</td>
+                <td><code>{{ rule.metric }}</code></td>
+                <td>{{ rule.operator }} {{ rule.threshold }}</td>
+                <td><span :class="['severity', rule.severity]">{{ rule.severity }}</span></td>
+                <td><span :class="['status-pill', rule.enabled ? 'online' : 'offline']">{{ rule.enabled ? 'enabled' : 'disabled' }}</span></td>
+                <td>
+                  <button class="table-action" @click="openRuleModal(rule)">
+                    <Edit3 :size="15" /> 编辑
+                  </button>
+                  <button class="table-action" @click="toggleRule(rule)">
+                    {{ rule.enabled ? '停用' : '启用' }}
+                  </button>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section v-if="activeView === 'alarms'" class="view">
+        <div class="panel">
+          <div class="table-toolbar">
+            <div>
+              <p class="eyebrow">Alarm Center</p>
+              <h2>告警列表</h2>
+            </div>
+          </div>
+          <div class="filter-row alarm-filter">
+            <input v-model="alarmQuery.keyword" placeholder="搜索设备 / 传感器 / 消息" @keyup.enter="loadAlarms(1)" />
+            <select v-model="alarmQuery.status">
+              <option value="">全部状态</option>
+              <option value="open">open</option>
+              <option value="acknowledged">acknowledged</option>
+            </select>
+            <select v-model="alarmQuery.severity">
+              <option value="">全部等级</option>
+              <option value="critical">critical</option>
+              <option value="warning">warning</option>
+              <option value="info">info</option>
+            </select>
+            <button class="primary-button" @click="loadAlarms(1)"><Search :size="17" /> 查询</button>
+            <button class="ghost-button" @click="resetAlarms">重置</button>
+          </div>
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>等级</th>
+                <th>设备</th>
+                <th>传感器 Key</th>
+                <th>实际值</th>
+                <th>条件</th>
+                <th>状态</th>
+                <th>发生时间</th>
+                <th class="actions-col">操作</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="alarm in alarms" :key="alarm.id">
+                <td><span :class="['severity', alarm.severity]">{{ alarm.severity }}</span></td>
+                <td><code>{{ alarm.deviceKey }}</code></td>
+                <td>{{ alarm.metric }}</td>
+                <td>{{ alarm.value }}</td>
+                <td>{{ alarm.operator }} {{ alarm.threshold }}</td>
+                <td><span :class="['status-pill', alarm.status === 'open' ? 'offline' : 'acknowledged']">{{ alarm.status }}</span></td>
+                <td>{{ formatDate(alarm.occurredAt) }}</td>
+                <td>
+                  <button class="table-action" @click="openAlarmModal(alarm)">
+                    <Eye :size="15" /> 查看
+                  </button>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+          <Pagination :page="alarmPage.page" :size="alarmPage.size" :total="alarmPage.total" @change="loadAlarms" />
+        </div>
+      </section>
+
+      <section v-if="activeView === 'ingest'" class="view">
+        <div class="panel">
+          <div class="table-toolbar">
+            <div>
+              <p class="eyebrow">HTTP Ingest</p>
+              <h2>接入示例</h2>
+            </div>
+            <button class="primary-button" @click="openIngestModal">
+              <Send :size="17" />
+              上报测试
+            </button>
+          </div>
+          <div class="code-panel">
+            <pre>{{ curlExample }}</pre>
+          </div>
+        </div>
+      </section>
+
+      <div v-if="modal" class="modal-backdrop" @click.self="closeModal">
+        <section class="modal-card" :class="{ large: ['device-status', 'sensor-manager', 'ingest'].includes(modal.type) }">
+          <header class="modal-header">
+            <div>
+              <p class="eyebrow">{{ modal.eyebrow }}</p>
+              <h2>{{ modal.title }}</h2>
+            </div>
+            <button class="icon-button" @click="closeModal" title="关闭">
+              <X :size="18" />
+            </button>
+          </header>
+
+          <form v-if="modal.type === 'product'" class="form-grid" @submit.prevent="saveProduct">
+            <input v-model="productForm.name" placeholder="产品名称" />
+            <input v-model="productForm.code" placeholder="产品编码" />
+            <input v-model="productForm.category" placeholder="分类，如 sensor" />
+            <textarea v-model="productForm.description" placeholder="描述"></textarea>
+            <textarea class="full" v-model="productForm.thingModel" placeholder="物模型 JSON"></textarea>
+            <footer class="modal-actions">
+              <button type="button" class="ghost-button" @click="closeModal">取消</button>
+              <button class="primary-button">保存</button>
+            </footer>
+          </form>
+
+          <form v-if="modal.type === 'device'" class="form-grid" @submit.prevent="saveDevice">
+            <select v-model.number="deviceForm.productId">
+              <option disabled value="">选择产品</option>
+              <option v-for="product in products" :key="product.id" :value="product.id">{{ product.name }}</option>
+            </select>
+            <input v-model="deviceForm.name" placeholder="设备名称" />
+            <input v-model="deviceForm.deviceKey" placeholder="设备 Key" />
+            <input v-model="deviceForm.secret" placeholder="设备密钥" />
+            <input class="full" v-model="deviceForm.location" placeholder="GPS 或安装位置，如 31.2304,121.4737" />
+            <footer class="modal-actions">
+              <button type="button" class="ghost-button" @click="closeModal">取消</button>
+              <button class="primary-button">保存</button>
+            </footer>
+          </form>
+
+          <div v-if="modal.type === 'sensor-manager'" class="modal-section">
+            <div class="table-toolbar compact">
+              <h2>绑定传感器</h2>
+              <button class="primary-button" @click="openSensorModal(modal.item)">
+                <Plus :size="17" />
+                添加传感器
+              </button>
+            </div>
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>名称</th>
+                  <th>Key</th>
+                  <th>类型</th>
+                  <th>单位</th>
+                  <th>描述</th>
+                  <th class="actions-col wide">操作</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-for="sensor in sensors" :key="sensor.id">
+                  <td><strong>{{ sensor.name }}</strong></td>
+                  <td><code>{{ sensor.sensorKey }}</code></td>
+                  <td>{{ sensor.sensorType }}</td>
+                  <td>{{ sensor.unit || '-' }}</td>
+                  <td>{{ sensor.description || '-' }}</td>
+                  <td>
+                    <button class="table-action" @click="openSensorModal(modal.item, sensor)">编辑</button>
+                    <button class="table-action danger" @click="deleteSensor(sensor.id)">删除</button>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <form v-if="modal.type === 'sensor'" class="form-grid" @submit.prevent="saveSensor">
+            <input v-model="sensorForm.name" placeholder="传感器名称，如 温度传感器" />
+            <input v-model="sensorForm.sensorKey" placeholder="传感器 Key，如 temperature" />
+            <select v-model="sensorForm.sensorType">
+              <option>number</option>
+              <option>string</option>
+              <option>boolean</option>
+            </select>
+            <input v-model="sensorForm.unit" placeholder="单位，如 C / % / V" />
+            <textarea class="full" v-model="sensorForm.description" placeholder="描述"></textarea>
+            <footer class="modal-actions">
+              <button type="button" class="ghost-button" @click="closeModal">取消</button>
+              <button class="primary-button">保存</button>
+            </footer>
+          </form>
+
+          <form v-if="modal.type === 'rule'" class="form-grid" @submit.prevent="saveRule">
+            <input v-model="ruleForm.name" placeholder="规则名称" />
+            <input v-model="ruleForm.deviceKey" placeholder="设备 Key，留空表示所有设备" />
+            <input v-model="ruleForm.metric" placeholder="传感器 Key，如 temperature" />
+            <select v-model="ruleForm.operator">
+              <option v-for="op in ['>', '>=', '<', '<=', '==', '!=']" :key="op">{{ op }}</option>
+            </select>
+            <input v-model.number="ruleForm.threshold" type="number" step="0.01" placeholder="阈值" />
+            <select v-model="ruleForm.severity">
+              <option>warning</option>
+              <option>critical</option>
+              <option>info</option>
+            </select>
+            <footer class="modal-actions">
+              <button type="button" class="ghost-button" @click="closeModal">取消</button>
+              <button class="primary-button">保存</button>
+            </footer>
+          </form>
+
+          <div v-if="modal.type === 'device-status'" class="detail-layout">
+            <div class="detail-card">
+              <span>设备 Key</span>
+              <strong>{{ modal.item.deviceKey }}</strong>
+            </div>
+            <div class="detail-card">
+              <span>GPS / 位置</span>
+              <strong>{{ modal.item.location || '-' }}</strong>
+            </div>
+            <div class="detail-card">
+              <span>产品</span>
+              <strong>{{ modal.item.productName }}</strong>
+            </div>
+            <div class="detail-card">
+              <span>在线状态</span>
+              <strong>{{ modal.item.status }}</strong>
+            </div>
+            <div class="latest-grid full">
+              <div v-for="item in latest" :key="item.metric" class="latest-item">
+                <span>{{ item.metric }}</span>
+                <strong>{{ displayValue(item) }}</strong>
+              </div>
+              <div v-if="!latest.length" class="empty">暂无最新数据。</div>
+            </div>
+          </div>
+
+          <div v-if="modal.type === 'alarm'" class="detail-layout">
+            <div class="alarm-message full">{{ modal.item.message }}</div>
+            <div class="detail-card">
+              <span>设备</span>
+              <strong>{{ modal.item.deviceKey }}</strong>
+            </div>
+            <div class="detail-card">
+              <span>传感器 Key</span>
+              <strong>{{ modal.item.metric }}</strong>
+            </div>
+            <div class="detail-card">
+              <span>实际值</span>
+              <strong>{{ modal.item.value }}</strong>
+            </div>
+            <div class="detail-card">
+              <span>状态</span>
+              <strong>{{ modal.item.status }}</strong>
+            </div>
+            <footer class="modal-actions full">
+              <button type="button" class="ghost-button" @click="closeModal">关闭</button>
+              <button v-if="modal.item.status === 'open'" class="primary-button" @click="ackAlarm(modal.item.id)">
+                <CheckCircle2 :size="17" />
+                确认告警
+              </button>
+            </footer>
+          </div>
+
+          <form v-if="modal.type === 'ingest'" class="form-grid" @submit.prevent="sendCustomTelemetry">
+            <input v-model="ingestForm.deviceKey" placeholder="设备 Key" />
+            <input v-model="ingestForm.secret" placeholder="设备密钥" />
+            <textarea class="full payload" v-model="ingestForm.payload"></textarea>
+            <footer class="modal-actions">
+              <button type="button" class="ghost-button" @click="closeModal">取消</button>
+              <button class="primary-button">
+                <Send :size="17" />
+                发送数据
+              </button>
+            </footer>
+          </form>
+        </section>
+      </div>
+    </main>
+  </div>
+</template>
+
+<script setup>
+import { computed, defineComponent, h, onMounted, reactive, ref } from 'vue';
+import {
+  Bell,
+  Boxes,
+  CheckCircle2,
+  Cpu,
+  Database,
+  Download,
+  Edit3,
+  Eye,
+  Gauge,
+  GitBranch,
+  Home,
+  Plus,
+  Radio,
+  RefreshCw,
+  Router,
+  Search,
+  Send,
+  ShieldAlert,
+  SlidersHorizontal,
+  X,
+} from 'lucide-vue-next';
+import { api } from './api';
+
+const viewKeys = ['overview', 'products', 'device-management', 'device-status', 'history', 'rules', 'alarms', 'ingest'];
+const hashView = window.location.hash.replace('#', '');
+const activeView = ref(viewKeys.includes(hashView) ? hashView : 'overview');
+const error = ref('');
+const toast = ref('');
+const health = reactive({});
+const summary = ref({});
+const productPage = ref({ records: [], total: 0, page: 1, size: 10 });
+const devicePage = ref({ records: [], total: 0, page: 1, size: 10 });
+const latest = ref([]);
+const latestByDevice = reactive({});
+const sensors = ref([]);
+const historySensors = ref([]);
+const historyRows = ref([]);
+const rulePage = ref({ records: [], total: 0, page: 1, size: 10 });
+const alarmPage = ref({ records: [], total: 0, page: 1, size: 10 });
+const selectedDevice = ref(null);
+const modal = ref(null);
+
+const productForm = reactive({
+  id: null,
+  name: '',
+  code: '',
+  category: 'sensor',
+  description: '',
+  thingModel: '[{"key":"temperature","name":"Temperature","type":"number","unit":"C"}]',
+});
+const deviceForm = reactive({ id: null, productId: '', name: '', deviceKey: '', secret: '', location: '' });
+const sensorForm = reactive({ id: null, deviceId: null, name: '', sensorKey: '', sensorType: 'number', unit: '', description: '' });
+const ruleForm = reactive({
+  id: null,
+  name: '',
+  deviceKey: '',
+  metric: 'temperature',
+  operator: '>',
+  threshold: 35,
+  severity: 'warning',
+  enabled: true,
+});
+const historyFilter = reactive({ deviceId: '', metric: '', start: '', end: '' });
+const productQuery = reactive({ keyword: '', category: '', page: 1, size: 10 });
+const deviceQuery = reactive({ keyword: '', productId: '', status: '', page: 1, size: 10 });
+const ruleQuery = reactive({ keyword: '', deviceKey: '', metric: '', enabled: '', page: 1, size: 10 });
+const alarmQuery = reactive({ keyword: '', status: '', severity: '', page: 1, size: 10 });
+const ingestForm = reactive({
+  deviceKey: 'demo-device-001',
+  secret: 'demo-secret',
+  payload: JSON.stringify({
+    timestamp: new Date().toISOString(),
+    values: { temperature: 36.8, humidity: 62, voltage: 220.1, battery: 87 },
+  }, null, 2),
+});
+
+const navItems = [
+  { key: 'overview', label: '总览', icon: Home },
+  { key: 'products', label: '产品', icon: Boxes },
+  { key: 'device-management', label: '设备管理', icon: Cpu },
+  { key: 'device-status', label: '设备状态', icon: Gauge },
+  { key: 'history', label: '历史数据', icon: Database },
+  { key: 'rules', label: '规则', icon: GitBranch },
+  { key: 'alarms', label: '告警', icon: ShieldAlert },
+  { key: 'ingest', label: '接入', icon: Router },
+];
+
+const titles = {
+  overview: '连接态势',
+  products: '产品与物模型',
+  'device-management': '设备管理',
+  'device-status': '设备状态查看',
+  history: '历史数据分析',
+  rules: '规则编排',
+  alarms: '告警中心',
+  ingest: '数据接入',
+};
+
+const currentTitle = computed(() => titles[activeView.value]);
+const products = computed(() => productPage.value.records || []);
+const devices = computed(() => devicePage.value.records || []);
+const rules = computed(() => rulePage.value.records || []);
+const alarms = computed(() => alarmPage.value.records || []);
+const metrics = computed(() => [
+  { label: '产品', value: summary.value.productCount || 0, icon: Boxes },
+  { label: '设备', value: summary.value.deviceCount || 0, icon: Cpu },
+  { label: '在线', value: summary.value.onlineDeviceCount || 0, icon: Radio },
+  { label: '今日数据', value: summary.value.todayTelemetryCount || 0, icon: Gauge },
+  { label: '未确认告警', value: summary.value.openAlarmCount || 0, icon: Bell },
+]);
+
+const curlExample = computed(() => `curl -X POST http://localhost:18080/api/ingest/http/${ingestForm.deviceKey}/telemetry \\
+  -H "Content-Type: application/json" \\
+  -H "X-Device-Secret: ${ingestForm.secret}" \\
+  -d '${ingestForm.payload.replaceAll("'", "'\\''")}'`);
+
+function switchView(view) {
+  activeView.value = view;
+  window.history.replaceState(null, '', `#${view}`);
+  if (view === 'history' && !historyFilter.deviceId && devices.value.length) {
+    historyFilter.deviceId = devices.value[0].id;
+    loadHistorySensors();
+  }
+}
+
+async function refreshAll() {
+  await run(async () => {
+    Object.assign(health, await api.health());
+    summary.value = await api.summary();
+    await Promise.all([loadProducts(), loadDevices(), loadRules(), loadAlarms()]);
+    if (!selectedDevice.value && devices.value.length) {
+      selectedDevice.value = devices.value[0];
+    }
+    await refreshLatestForDevices();
+  });
+}
+
+async function loadProducts(page = productQuery.page) {
+  productQuery.page = page;
+  productPage.value = await api.products(productQuery);
+}
+
+async function loadDevices(page = deviceQuery.page) {
+  deviceQuery.page = page;
+  devicePage.value = await api.devices(deviceQuery);
+  await refreshLatestForDevices();
+}
+
+async function loadRules(page = ruleQuery.page) {
+  ruleQuery.page = page;
+  rulePage.value = await api.rules({
+    ...ruleQuery,
+    enabled: ruleQuery.enabled === '' ? '' : ruleQuery.enabled === 'true',
+  });
+}
+
+async function loadAlarms(page = alarmQuery.page) {
+  alarmQuery.page = page;
+  alarmPage.value = await api.alarms(alarmQuery);
+}
+
+function resetProducts() {
+  Object.assign(productQuery, { keyword: '', category: '', page: 1, size: 10 });
+  loadProducts(1);
+}
+
+function resetDevices() {
+  Object.assign(deviceQuery, { keyword: '', productId: '', status: '', page: 1, size: 10 });
+  loadDevices(1);
+}
+
+function resetRules() {
+  Object.assign(ruleQuery, { keyword: '', deviceKey: '', metric: '', enabled: '', page: 1, size: 10 });
+  loadRules(1);
+}
+
+function resetAlarms() {
+  Object.assign(alarmQuery, { keyword: '', status: '', severity: '', page: 1, size: 10 });
+  loadAlarms(1);
+}
+
+async function refreshLatestForDevices() {
+  for (const device of devices.value) {
+    latestByDevice[device.id] = await api.latest(device.id);
+  }
+  if (selectedDevice.value) {
+    latest.value = latestByDevice[selectedDevice.value.id] || [];
+  }
+}
+
+function openProductModal(product) {
+  Object.assign(productForm, {
+    id: product?.id || null,
+    name: product?.name || '',
+    code: product?.code || '',
+    category: product?.category || 'sensor',
+    description: product?.description || '',
+    thingModel: product?.thingModel || '[{"key":"temperature","name":"Temperature","type":"number","unit":"C"}]',
+  });
+  modal.value = { type: 'product', title: product ? '编辑产品' : '新建产品', eyebrow: 'Product' };
+}
+
+async function saveProduct() {
+  await run(async () => {
+    const payload = { ...productForm };
+    if (productForm.id) {
+      await api.updateProduct(productForm.id, payload);
+      notify('产品已更新');
+    } else {
+      await api.createProduct(payload);
+      notify('产品已创建');
+    }
+    closeModal();
+    await refreshAll();
+  });
+}
+
+function openDeviceModal(device) {
+  Object.assign(deviceForm, {
+    id: device?.id || null,
+    productId: device?.productId || products.value[0]?.id || '',
+    name: device?.name || '',
+    deviceKey: device?.deviceKey || '',
+    secret: device?.secret || '',
+    location: device?.location || '',
+  });
+  modal.value = { type: 'device', title: device ? '编辑设备' : '新建设备', eyebrow: 'Device' };
+}
+
+async function saveDevice() {
+  await run(async () => {
+    const payload = { ...deviceForm };
+    if (deviceForm.id) {
+      await api.updateDevice(deviceForm.id, payload);
+      notify('设备已更新');
+    } else {
+      await api.createDevice(payload);
+      notify('设备已创建');
+    }
+    closeModal();
+    await refreshAll();
+  });
+}
+
+async function openSensorManager(device) {
+  selectedDevice.value = device;
+  sensors.value = await api.sensors(device.id);
+  modal.value = { type: 'sensor-manager', title: `${device.name} / 传感器绑定`, eyebrow: 'Sensor Binding', item: device };
+}
+
+function openSensorModal(device, sensor) {
+  Object.assign(sensorForm, {
+    id: sensor?.id || null,
+    deviceId: device.id,
+    name: sensor?.name || '',
+    sensorKey: sensor?.sensorKey || '',
+    sensorType: sensor?.sensorType || 'number',
+    unit: sensor?.unit || '',
+    description: sensor?.description || '',
+  });
+  modal.value = { type: 'sensor', title: sensor ? '编辑传感器' : '添加传感器', eyebrow: 'Sensor', parentDevice: device };
+}
+
+async function saveSensor() {
+  await run(async () => {
+    const payload = { ...sensorForm };
+    if (sensorForm.id) {
+      await api.updateSensor(sensorForm.id, payload);
+      notify('传感器已更新');
+    } else {
+      await api.createSensor(sensorForm.deviceId, payload);
+      notify('传感器已绑定');
+    }
+    const device = devices.value.find((item) => item.id === sensorForm.deviceId);
+    if (device) {
+      await openSensorManager(device);
+    } else {
+      closeModal();
+    }
+  });
+}
+
+async function deleteSensor(id) {
+  await run(async () => {
+    await api.deleteSensor(id);
+    notify('传感器已删除');
+    if (selectedDevice.value) {
+      sensors.value = await api.sensors(selectedDevice.value.id);
+    }
+  });
+}
+
+async function openDeviceStatus(device) {
+  selectedDevice.value = device;
+  latest.value = await api.latest(device.id);
+  modal.value = { type: 'device-status', title: `${device.name} / 最新状态`, eyebrow: 'Realtime State', item: device };
+}
+
+function openRuleModal(rule) {
+  Object.assign(ruleForm, {
+    id: rule?.id || null,
+    name: rule?.name || '',
+    deviceKey: rule?.deviceKey || '',
+    metric: rule?.metric || 'temperature',
+    operator: rule?.operator || '>',
+    threshold: rule?.threshold || 35,
+    severity: rule?.severity || 'warning',
+    enabled: rule?.enabled ?? true,
+    description: rule?.description || '',
+  });
+  modal.value = { type: 'rule', title: rule ? '编辑规则' : '新建规则', eyebrow: 'Rule' };
+}
+
+async function saveRule() {
+  await run(async () => {
+    const payload = { ...ruleForm };
+    if (ruleForm.id) {
+      await api.updateRule(ruleForm.id, payload);
+      notify('规则已更新');
+    } else {
+      await api.createRule(payload);
+      notify('规则已创建');
+    }
+    closeModal();
+    await refreshAll();
+  });
+}
+
+async function toggleRule(rule) {
+  await run(async () => {
+    if (rule.enabled) {
+      await api.disableRule(rule.id);
+    } else {
+      await api.enableRule(rule.id);
+    }
+    await refreshAll();
+  });
+}
+
+async function loadHistorySensors() {
+  historyFilter.metric = '';
+  historyRows.value = [];
+  if (historyFilter.deviceId) {
+    historySensors.value = await api.sensors(historyFilter.deviceId);
+  }
+}
+
+async function queryHistory() {
+  await run(async () => {
+    if (!historyFilter.deviceId) {
+      throw new Error('请选择设备');
+    }
+    historyRows.value = await api.telemetry(historyFilter.deviceId, {
+      metric: historyFilter.metric,
+      start: toApiTime(historyFilter.start),
+      end: toApiTime(historyFilter.end),
+      limit: 500,
+    });
+  });
+}
+
+function exportHistoryCsv() {
+  const header = ['time', 'deviceId', 'metric', 'numericValue', 'textValue', 'valueType', 'quality'];
+  const rows = historyRows.value.map((row) => header.map((key) => csvCell(row[key])).join(','));
+  const blob = new Blob([[header.join(','), ...rows].join('\n')], { type: 'text/csv;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = `openlinkhub-telemetry-${Date.now()}.csv`;
+  link.click();
+  URL.revokeObjectURL(url);
+}
+
+function openAlarmModal(alarm) {
+  modal.value = { type: 'alarm', title: `告警 #${alarm.id}`, eyebrow: 'Alarm Detail', item: alarm };
+}
+
+async function ackAlarm(id) {
+  await run(async () => {
+    await api.ackAlarm(id);
+    notify('告警已确认');
+    closeModal();
+    await refreshAll();
+  });
+}
+
+function openIngestModal() {
+  ingestForm.payload = JSON.stringify({
+    timestamp: new Date().toISOString(),
+    values: { temperature: 36.8, humidity: 62, voltage: 220.1, battery: 87 },
+  }, null, 2);
+  modal.value = { type: 'ingest', title: 'HTTP 上报测试', eyebrow: 'Ingest' };
+}
+
+async function sendDemoTelemetry() {
+  const temp = Number((32 + Math.random() * 8).toFixed(1));
+  await sendTelemetry('demo-device-001', 'demo-secret', {
+    timestamp: new Date().toISOString(),
+    values: {
+      temperature: temp,
+      humidity: Math.round(48 + Math.random() * 22),
+      voltage: Number((218 + Math.random() * 5).toFixed(1)),
+      battery: Math.round(72 + Math.random() * 22),
+    },
+  });
+}
+
+async function sendCustomTelemetry() {
+  await sendTelemetry(ingestForm.deviceKey, ingestForm.secret, JSON.parse(ingestForm.payload));
+  closeModal();
+}
+
+async function sendTelemetry(deviceKey, secret, payload) {
+  await run(async () => {
+    const result = await api.ingest(deviceKey, secret, payload);
+    notify(`已接收 ${result.acceptedMetrics} 个指标，触发 ${result.alarms.length} 条告警`);
+    await refreshAll();
+  });
+}
+
+function closeModal() {
+  modal.value = null;
+}
+
+async function run(task) {
+  error.value = '';
+  try {
+    await task();
+  } catch (exception) {
+    error.value = exception.message;
+  }
+}
+
+function notify(message) {
+  toast.value = message;
+  window.setTimeout(() => {
+    toast.value = '';
+  }, 2600);
+}
+
+function latestSummary(deviceId) {
+  const values = latestByDevice[deviceId] || [];
+  if (!values.length) return '-';
+  return values.slice(0, 4).map((item) => `${item.metric}: ${displayValue(item)}`).join(' / ');
+}
+
+function displayValue(item) {
+  if (item.numericValue !== null && item.numericValue !== undefined) {
+    return Number(item.numericValue).toLocaleString();
+  }
+  return item.textValue || item.rawValue;
+}
+
+function formatTime(value) {
+  if (!value) return '-';
+  return new Intl.DateTimeFormat('zh-CN', {
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+  }).format(new Date(value));
+}
+
+function formatDate(value) {
+  if (!value) return '-';
+  return new Intl.DateTimeFormat('zh-CN', {
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+  }).format(new Date(value));
+}
+
+function toApiTime(value) {
+  return value ? new Date(value).toISOString() : '';
+}
+
+function csvCell(value) {
+  if (value === null || value === undefined) return '';
+  return `"${String(value).replaceAll('"', '""')}"`;
+}
+
+onMounted(async () => {
+  await refreshAll();
+  if (activeView.value === 'history' && devices.value.length) {
+    historyFilter.deviceId = devices.value[0].id;
+    await loadHistorySensors();
+  }
+});
+
+const Pagination = defineComponent({
+  props: {
+    page: { type: Number, required: true },
+    size: { type: Number, required: true },
+    total: { type: Number, required: true },
+  },
+  emits: ['change'],
+  setup(props, { emit }) {
+    return () => {
+      const totalPages = Math.max(1, Math.ceil(props.total / props.size));
+      return h('div', { class: 'pagination' }, [
+        h('span', `共 ${props.total} 条，第 ${props.page} / ${totalPages} 页`),
+        h('button', {
+          class: 'ghost-button',
+          disabled: props.page <= 1,
+          onClick: () => emit('change', props.page - 1),
+        }, '上一页'),
+        h('button', {
+          class: 'ghost-button',
+          disabled: props.page >= totalPages,
+          onClick: () => emit('change', props.page + 1),
+        }, '下一页'),
+      ]);
+    };
+  },
+});
+</script>
