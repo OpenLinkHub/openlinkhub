@@ -8,7 +8,6 @@ public record Product(
         String code,
         String category,
         String description,
-        String thingModel,
         OffsetDateTime createdAt,
         OffsetDateTime updatedAt
 ) {

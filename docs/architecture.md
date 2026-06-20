@@ -13,7 +13,7 @@ TimescaleDB
 The backend keeps clear module boundaries:
 
 ```text
-product      product and thing model metadata
+product      product metadata and generated thing model view
 sensor       product-level sensor definitions
 device       device registry, product selection, and secrets
 telemetry    HTTP ingest, latest data, history data by sensor key

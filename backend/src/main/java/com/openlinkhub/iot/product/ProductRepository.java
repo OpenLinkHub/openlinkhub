@@ -20,8 +20,7 @@ public class ProductRepository {
 
     public List<Product> findAll() {
         return jdbc.sql("""
-                SELECT id, name, code, category, description, thing_model::text AS thing_model,
-                       created_at, updated_at
+                SELECT id, name, code, category, description, created_at, updated_at
                 FROM olh_product
                 ORDER BY id DESC
                 """)
@@ -44,8 +43,7 @@ public class ProductRepository {
                 WHERE TRUE
                 """ + keywordFilter + categoryFilter);
         JdbcClient.StatementSpec dataSpec = jdbc.sql("""
-                SELECT id, name, code, category, description, thing_model::text AS thing_model,
-                       created_at, updated_at
+                SELECT id, name, code, category, description, created_at, updated_at
                 FROM olh_product
                 WHERE TRUE
                 """ + keywordFilter + categoryFilter + """
@@ -75,8 +73,7 @@ public class ProductRepository {
 
     public Optional<Product> findById(Long id) {
         return jdbc.sql("""
-                SELECT id, name, code, category, description, thing_model::text AS thing_model,
-                       created_at, updated_at
+                SELECT id, name, code, category, description, created_at, updated_at
                 FROM olh_product
                 WHERE id = :id
                 """)
@@ -87,16 +84,14 @@ public class ProductRepository {
 
     public Product create(ProductRequest request) {
         return jdbc.sql("""
-                INSERT INTO olh_product (name, code, category, description, thing_model)
-                VALUES (:name, :code, COALESCE(:category, 'general'), :description, CAST(:thingModel AS jsonb))
-                RETURNING id, name, code, category, description, thing_model::text AS thing_model,
-                          created_at, updated_at
+                INSERT INTO olh_product (name, code, category, description)
+                VALUES (:name, :code, COALESCE(:category, 'general'), :description)
+                RETURNING id, name, code, category, description, created_at, updated_at
                 """)
                 .param("name", request.name())
                 .param("code", request.code())
                 .param("category", request.category())
                 .param("description", request.description())
-                .param("thingModel", normalizeThingModel(request.thingModel()))
                 .query(this::mapProduct)
                 .single();
     }
@@ -108,18 +103,15 @@ public class ProductRepository {
                     code = :code,
                     category = COALESCE(:category, 'general'),
                     description = :description,
-                    thing_model = CAST(:thingModel AS jsonb),
                     updated_at = NOW()
                 WHERE id = :id
-                RETURNING id, name, code, category, description, thing_model::text AS thing_model,
-                          created_at, updated_at
+                RETURNING id, name, code, category, description, created_at, updated_at
                 """)
                 .param("id", id)
                 .param("name", request.name())
                 .param("code", request.code())
                 .param("category", request.category())
                 .param("description", request.description())
-                .param("thingModel", normalizeThingModel(request.thingModel()))
                 .query(this::mapProduct)
                 .single();
     }
@@ -131,13 +123,8 @@ public class ProductRepository {
                 rs.getString("code"),
                 rs.getString("category"),
                 rs.getString("description"),
-                rs.getString("thing_model"),
                 rs.getObject("created_at", java.time.OffsetDateTime.class),
                 rs.getObject("updated_at", java.time.OffsetDateTime.class)
         );
-    }
-
-    private String normalizeThingModel(String value) {
-        return value == null || value.isBlank() ? "[]" : value;
     }
 }

@@ -6,10 +6,11 @@ CREATE TABLE IF NOT EXISTS olh_product (
     code VARCHAR(80) NOT NULL UNIQUE,
     category VARCHAR(80) NOT NULL DEFAULT 'general',
     description TEXT,
-    thing_model JSONB NOT NULL DEFAULT '[]'::jsonb,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
+
+ALTER TABLE olh_product DROP COLUMN IF EXISTS thing_model;
 
 CREATE TABLE IF NOT EXISTS olh_device (
     id BIGSERIAL PRIMARY KEY,
@@ -115,13 +116,12 @@ CREATE TABLE IF NOT EXISTS olh_alarm (
 
 CREATE INDEX IF NOT EXISTS idx_alarm_status_time ON olh_alarm (status, occurred_at DESC);
 
-INSERT INTO olh_product (name, code, category, description, thing_model)
+INSERT INTO olh_product (name, code, category, description)
 VALUES (
     'Smart Environment Sensor',
     'env-sensor',
     'sensor',
-    'Default product for HTTP telemetry demos.',
-    '[{"key":"temperature","name":"Temperature","type":"number","unit":"C"},{"key":"humidity","name":"Humidity","type":"number","unit":"%"},{"key":"voltage","name":"Voltage","type":"number","unit":"V"}]'::jsonb
+    'Default product for HTTP telemetry demos.'
 )
 ON CONFLICT (code) DO NOTHING;
 

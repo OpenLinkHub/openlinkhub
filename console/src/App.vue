@@ -120,7 +120,7 @@
                 <th>分类</th>
                 <th>描述</th>
                 <th>创建时间</th>
-                <th class="actions-col">操作</th>
+                <th class="actions-col wide">操作</th>
               </tr>
             </thead>
             <tbody>
@@ -131,6 +131,9 @@
                 <td>{{ product.description || '-' }}</td>
                 <td>{{ formatDate(product.createdAt) }}</td>
                 <td>
+                  <button class="table-action" @click="openThingModel(product)">
+                    <Eye :size="15" /> 查看
+                  </button>
                   <button class="table-action" @click="openProductModal(product)">
                     <Edit3 :size="15" /> 编辑
                   </button>
@@ -507,7 +510,7 @@
       </section>
 
       <div v-if="modal" class="modal-backdrop" @click.self="closeModal">
-        <section class="modal-card" :class="{ large: ['device-status', 'ingest'].includes(modal.type) }">
+        <section class="modal-card" :class="{ large: ['device-status', 'ingest', 'thing-model'].includes(modal.type) }">
           <header class="modal-header">
             <div>
               <p class="eyebrow">{{ modal.eyebrow }}</p>
@@ -536,11 +539,6 @@
             <label class="field">
               <span>产品描述</span>
               <textarea v-model="productForm.description"></textarea>
-            </label>
-            <label class="field full">
-              <span>物模型 JSON</span>
-              <textarea v-model="productForm.thingModel"></textarea>
-              <small>可描述产品属性、事件或服务，后续会与产品传感器定义继续收敛。</small>
             </label>
             <footer class="modal-actions">
               <button type="button" class="ghost-button" @click="closeModal">取消</button>
@@ -688,6 +686,68 @@
             </div>
           </div>
 
+          <div v-if="modal.type === 'thing-model'" class="model-view">
+            <div class="model-summary">
+              <div>
+                <span>产品编码</span>
+                <strong>{{ modal.item.code }}</strong>
+              </div>
+              <div>
+                <span>产品分类</span>
+                <strong>{{ modal.item.category || '-' }}</strong>
+              </div>
+              <div>
+                <span>传感器属性</span>
+                <strong>{{ productModelSensors.length }}</strong>
+              </div>
+            </div>
+
+            <section class="model-section">
+              <div class="table-toolbar compact">
+                <div>
+                  <p class="eyebrow">Telemetry Properties</p>
+                  <h2>传感器属性</h2>
+                </div>
+              </div>
+              <table class="data-table">
+                <thead>
+                  <tr>
+                    <th>名称</th>
+                    <th>Key</th>
+                    <th>类型</th>
+                    <th>单位</th>
+                    <th>说明</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr v-for="sensor in productModelSensors" :key="sensor.id">
+                    <td><strong>{{ sensor.name }}</strong></td>
+                    <td><code>{{ sensor.sensorKey }}</code></td>
+                    <td>{{ sensor.sensorType }}</td>
+                    <td>{{ sensor.unit || '-' }}</td>
+                    <td>{{ sensor.description || '-' }}</td>
+                  </tr>
+                  <tr v-if="!productModelSensors.length">
+                    <td colspan="5" class="table-empty">暂无传感器属性，请先在传感器管理中维护。</td>
+                  </tr>
+                </tbody>
+              </table>
+            </section>
+
+            <div class="model-placeholder-grid">
+              <div class="model-placeholder">
+                <span>Control Commands</span>
+                <strong>控制指令</strong>
+                <p>后续增加设备控制能力后，将在这里展示可下发指令、参数和数据类型。</p>
+              </div>
+              <div class="model-placeholder">
+                <span>Events</span>
+                <strong>事件</strong>
+                <p>后续增加事件能力后，将在这里展示事件 Key、事件等级和事件字段。</p>
+              </div>
+            </div>
+          </div>
+
           <div v-if="modal.type === 'alarm'" class="detail-layout">
             <div class="alarm-message full">{{ modal.item.message }}</div>
             <div class="detail-card">
@@ -781,6 +841,7 @@ const devicePage = ref({ records: [], total: 0, page: 1, size: 10 });
 const latest = ref([]);
 const latestByDevice = reactive({});
 const sensors = ref([]);
+const productModelSensors = ref([]);
 const historySensors = ref([]);
 const historyRows = ref([]);
 const rulePage = ref({ records: [], total: 0, page: 1, size: 10 });
@@ -794,7 +855,6 @@ const productForm = reactive({
   code: '',
   category: 'sensor',
   description: '',
-  thingModel: '[{"key":"temperature","name":"Temperature","type":"number","unit":"C"}]',
 });
 const deviceForm = reactive({ id: null, productId: '', name: '', deviceKey: '', secret: '', location: '' });
 const sensorForm = reactive({ id: null, productId: '', name: '', sensorKey: '', sensorType: 'number', unit: '', description: '' });
@@ -1002,7 +1062,6 @@ function openProductModal(product) {
     code: product?.code || '',
     category: product?.category || 'sensor',
     description: product?.description || '',
-    thingModel: product?.thingModel || '[{"key":"temperature","name":"Temperature","type":"number","unit":"C"}]',
   });
   modal.value = { type: 'product', title: product ? '编辑产品' : '新建产品', eyebrow: 'Product' };
 }
@@ -1019,6 +1078,13 @@ async function saveProduct() {
     }
     closeModal();
     await refreshAll();
+  });
+}
+
+async function openThingModel(product) {
+  await run(async () => {
+    productModelSensors.value = await api.sensors(product.id);
+    modal.value = { type: 'thing-model', title: `${product.name} / 物模型视图`, eyebrow: 'Thing Model View', item: product };
   });
 }
 

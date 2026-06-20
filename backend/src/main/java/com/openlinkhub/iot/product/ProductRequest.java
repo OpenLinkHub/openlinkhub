@@ -6,7 +6,6 @@ public record ProductRequest(
         @NotBlank String name,
         @NotBlank String code,
         String category,
-        String description,
-        String thingModel
+        String description
 ) {
 }
