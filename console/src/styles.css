@@ -674,7 +674,7 @@ textarea:focus {
 }
 
 .modal-card {
-  width: min(680px, calc(100vw - 96px));
+  width: min(760px, calc(100vw - 96px));
   max-height: calc(100vh - 96px);
   overflow: auto;
   border: 1px solid rgba(203, 213, 225, 0.9);
@@ -710,7 +710,7 @@ textarea:focus {
 .detail-layout {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 12px;
+  gap: 16px 18px;
   padding: 20px;
 }
 
@@ -724,13 +724,44 @@ textarea:focus {
   margin-bottom: 0;
 }
 
+.field.full,
 .form-grid .full,
 .detail-layout .full,
 .modal-actions {
   grid-column: 1 / -1;
 }
 
-.form-grid textarea.full {
+.field {
+  display: grid;
+  align-content: start;
+  gap: 7px;
+  min-width: 0;
+}
+
+.field > span {
+  color: #334155;
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.field small {
+  color: #7d8da3;
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.field input,
+.field select,
+.field textarea {
+  width: 100%;
+}
+
+.field textarea {
+  min-height: 96px;
+  resize: vertical;
+}
+
+.field.full textarea:not(.payload) {
   min-height: 132px;
 }
 

@@ -519,11 +519,29 @@
           </header>
 
           <form v-if="modal.type === 'product'" class="form-grid" @submit.prevent="saveProduct">
-            <input v-model="productForm.name" placeholder="产品名称" />
-            <input v-model="productForm.code" placeholder="产品编码" />
-            <input v-model="productForm.category" placeholder="分类，如 sensor" />
-            <textarea v-model="productForm.description" placeholder="描述"></textarea>
-            <textarea class="full" v-model="productForm.thingModel" placeholder="物模型 JSON"></textarea>
+            <label class="field">
+              <span>产品名称</span>
+              <input v-model="productForm.name" />
+            </label>
+            <label class="field">
+              <span>产品编码</span>
+              <input v-model="productForm.code" />
+              <small>用于系统识别，建议使用英文、数字或短横线。</small>
+            </label>
+            <label class="field">
+              <span>产品分类</span>
+              <input v-model="productForm.category" />
+              <small>例如 sensor、gateway、meter。</small>
+            </label>
+            <label class="field">
+              <span>产品描述</span>
+              <textarea v-model="productForm.description"></textarea>
+            </label>
+            <label class="field full">
+              <span>物模型 JSON</span>
+              <textarea v-model="productForm.thingModel"></textarea>
+              <small>可描述产品属性、事件或服务，后续会与产品传感器定义继续收敛。</small>
+            </label>
             <footer class="modal-actions">
               <button type="button" class="ghost-button" @click="closeModal">取消</button>
               <button class="primary-button">保存</button>
@@ -531,14 +549,33 @@
           </form>
 
           <form v-if="modal.type === 'device'" class="form-grid" @submit.prevent="saveDevice">
-            <select v-model.number="deviceForm.productId">
-              <option disabled value="">选择产品</option>
-              <option v-for="product in products" :key="product.id" :value="product.id">{{ product.name }}</option>
-            </select>
-            <input v-model="deviceForm.name" placeholder="设备名称" />
-            <input v-model="deviceForm.deviceKey" placeholder="设备 Key" />
-            <input v-model="deviceForm.secret" placeholder="设备密钥" />
-            <input class="full" v-model="deviceForm.location" placeholder="GPS 或安装位置，如 31.2304,121.4737" />
+            <label class="field">
+              <span>所属产品</span>
+              <select v-model.number="deviceForm.productId">
+                <option disabled value="">选择产品</option>
+                <option v-for="product in products" :key="product.id" :value="product.id">{{ product.name }}</option>
+              </select>
+              <small>设备会继承该产品下定义的传感器类型。</small>
+            </label>
+            <label class="field">
+              <span>设备名称</span>
+              <input v-model="deviceForm.name" />
+            </label>
+            <label class="field">
+              <span>设备 Key</span>
+              <input v-model="deviceForm.deviceKey" />
+              <small>设备上报时使用的唯一标识。</small>
+            </label>
+            <label class="field">
+              <span>设备密钥</span>
+              <input v-model="deviceForm.secret" />
+              <small>HTTP 上报时通过 X-Device-Secret 校验。</small>
+            </label>
+            <label class="field full">
+              <span>GPS / 安装位置</span>
+              <input v-model="deviceForm.location" />
+              <small>例如 31.2304,121.4737，或填写具体安装位置。</small>
+            </label>
             <footer class="modal-actions">
               <button type="button" class="ghost-button" @click="closeModal">取消</button>
               <button class="primary-button">保存</button>
@@ -546,19 +583,40 @@
           </form>
 
           <form v-if="modal.type === 'sensor'" class="form-grid" @submit.prevent="saveSensor">
-            <select v-model.number="sensorForm.productId">
-              <option disabled value="">选择产品</option>
-              <option v-for="product in products" :key="product.id" :value="product.id">{{ product.name }}</option>
-            </select>
-            <input v-model="sensorForm.name" placeholder="传感器名称，如 温度传感器" />
-            <input v-model="sensorForm.sensorKey" placeholder="传感器 Key，如 temperature" />
-            <select v-model="sensorForm.sensorType">
-              <option>number</option>
-              <option>string</option>
-              <option>boolean</option>
-            </select>
-            <input v-model="sensorForm.unit" placeholder="单位，如 C / % / V" />
-            <textarea class="full" v-model="sensorForm.description" placeholder="描述"></textarea>
+            <label class="field">
+              <span>所属产品</span>
+              <select v-model.number="sensorForm.productId">
+                <option disabled value="">选择产品</option>
+                <option v-for="product in products" :key="product.id" :value="product.id">{{ product.name }}</option>
+              </select>
+            </label>
+            <label class="field">
+              <span>传感器名称</span>
+              <input v-model="sensorForm.name" />
+              <small>例如温度传感器、湿度传感器、电量。</small>
+            </label>
+            <label class="field">
+              <span>传感器 Key</span>
+              <input v-model="sensorForm.sensorKey" />
+              <small>必须与设备回传数据里的字段名一致，例如 temperature。</small>
+            </label>
+            <label class="field">
+              <span>数据类型</span>
+              <select v-model="sensorForm.sensorType">
+                <option>number</option>
+                <option>string</option>
+                <option>boolean</option>
+              </select>
+            </label>
+            <label class="field">
+              <span>单位</span>
+              <input v-model="sensorForm.unit" />
+              <small>例如 C、%、V；无单位可留空。</small>
+            </label>
+            <label class="field full">
+              <span>传感器描述</span>
+              <textarea v-model="sensorForm.description"></textarea>
+            </label>
             <footer class="modal-actions">
               <button type="button" class="ghost-button" @click="closeModal">取消</button>
               <button class="primary-button">保存</button>
@@ -566,18 +624,38 @@
           </form>
 
           <form v-if="modal.type === 'rule'" class="form-grid" @submit.prevent="saveRule">
-            <input v-model="ruleForm.name" placeholder="规则名称" />
-            <input v-model="ruleForm.deviceKey" placeholder="设备 Key，留空表示所有设备" />
-            <input v-model="ruleForm.metric" placeholder="传感器 Key，如 temperature" />
-            <select v-model="ruleForm.operator">
-              <option v-for="op in ['>', '>=', '<', '<=', '==', '!=']" :key="op">{{ op }}</option>
-            </select>
-            <input v-model.number="ruleForm.threshold" type="number" step="0.01" placeholder="阈值" />
-            <select v-model="ruleForm.severity">
-              <option>warning</option>
-              <option>critical</option>
-              <option>info</option>
-            </select>
+            <label class="field">
+              <span>规则名称</span>
+              <input v-model="ruleForm.name" />
+            </label>
+            <label class="field">
+              <span>设备 Key</span>
+              <input v-model="ruleForm.deviceKey" />
+              <small>留空表示应用到所有设备。</small>
+            </label>
+            <label class="field">
+              <span>传感器 Key</span>
+              <input v-model="ruleForm.metric" />
+              <small>例如 temperature，应与产品传感器定义一致。</small>
+            </label>
+            <label class="field">
+              <span>判断条件</span>
+              <select v-model="ruleForm.operator">
+                <option v-for="op in ['>', '>=', '<', '<=', '==', '!=']" :key="op">{{ op }}</option>
+              </select>
+            </label>
+            <label class="field">
+              <span>阈值</span>
+              <input v-model.number="ruleForm.threshold" type="number" step="0.01" />
+            </label>
+            <label class="field">
+              <span>告警等级</span>
+              <select v-model="ruleForm.severity">
+                <option>warning</option>
+                <option>critical</option>
+                <option>info</option>
+              </select>
+            </label>
             <footer class="modal-actions">
               <button type="button" class="ghost-button" @click="closeModal">取消</button>
               <button class="primary-button">保存</button>
@@ -638,9 +716,19 @@
           </div>
 
           <form v-if="modal.type === 'ingest'" class="form-grid" @submit.prevent="sendCustomTelemetry">
-            <input v-model="ingestForm.deviceKey" placeholder="设备 Key" />
-            <input v-model="ingestForm.secret" placeholder="设备密钥" />
-            <textarea class="full payload" v-model="ingestForm.payload"></textarea>
+            <label class="field">
+              <span>设备 Key</span>
+              <input v-model="ingestForm.deviceKey" />
+            </label>
+            <label class="field">
+              <span>设备密钥</span>
+              <input v-model="ingestForm.secret" />
+            </label>
+            <label class="field full">
+              <span>上报 Payload</span>
+              <textarea class="payload" v-model="ingestForm.payload"></textarea>
+              <small>values 中的字段名会按产品传感器 Key 解析。</small>
+            </label>
             <footer class="modal-actions">
               <button type="button" class="ghost-button" @click="closeModal">取消</button>
               <button class="primary-button">
