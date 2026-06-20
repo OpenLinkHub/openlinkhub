@@ -9,8 +9,16 @@ openlinkhub
 ├── backend   Spring Boot 3 / Java 21 API
 ├── console   Vue 3 Signal Operations Console
 ├── deploy    Local database and compose helpers
-├── docs      Architecture and API notes
+├── docs      PRD, architecture, API, database notes, and GitHub Pages site
 └── examples  Device ingest examples
+```
+
+## Product Requirements
+
+The product model and future iteration rules are maintained in:
+
+```text
+docs/prd.md
 ```
 
 ## Local Stack
