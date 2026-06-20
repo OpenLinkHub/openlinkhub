@@ -49,6 +49,8 @@ Device  1 ── N TelemetryData
 - 设备不直接绑定传感器。
 - 设备上报数据时，平台根据设备所属产品解析传感器数据。
 - 遥测数据按设备、产品、传感器 key 和时间写入时序表。
+- 产品定义默认接入协议和解析规则。
+- 设备继承产品协议能力，并保存实例级身份、连接或地址参数。
 
 不再采用：
 
@@ -76,7 +78,8 @@ Device 1 ── N Sensor
 | name | 产品名称 |
 | code | 产品编码，唯一 |
 | category | 产品分类 |
-| protocolType | 协议类型，第一阶段可选 |
+| protocolType | 默认接入协议：HTTP/MQTT/TCP/MODBUS/OPC_UA |
+| protocolConfig | 产品级协议解析模板，后续支持 |
 | description | 描述 |
 | createdAt | 创建时间 |
 | updatedAt | 更新时间 |
@@ -89,6 +92,10 @@ Device 1 ── N Sensor
 - 产品传感器定义变更应谨慎处理历史数据解释问题。
 - 产品不维护自由格式的物模型 JSON；物模型视图由传感器定义生成。
 - 物模型视图当前展示传感器属性，后续增加控制指令和事件后同步扩展。
+- 产品应定义默认接入协议，协议类型属于产品能力的一部分。
+- 产品级协议配置描述同类设备通用的解析规则，例如 MQTT topic 模板、TCP 报文解析规则、Modbus 寄存器映射、OPC UA node 映射。
+- MVP 当前已支持 HTTP；下一阶段优先支持 MQTT 和 TCP。
+- Modbus / OPC UA 属于后续网关或平台主动采集类协议，应在协议配置成熟后接入。
 
 ### 4.2 传感器定义 Sensor Definition
 
@@ -151,6 +158,7 @@ Device 1 ── N Sensor
 | name | 设备名称 |
 | deviceKey | 设备唯一标识 |
 | secret | 设备密钥 |
+| connectionConfig | 设备级连接参数，后续支持 |
 | location | GPS 或安装位置 |
 | status | 在线状态 |
 | lastSeenAt | 最后上报时间 |
@@ -164,6 +172,9 @@ Device 1 ── N Sensor
 - 设备不直接维护传感器绑定列表。
 - 设备上报数据时，通过 `deviceKey` 定位设备，再通过 `productId` 加载产品传感器定义。
 - 设备状态由最近上报行为更新。
+- 设备默认继承产品的协议类型和解析规则。
+- 设备级配置只保存实例差异，例如 MQTT clientId、TCP 远端地址、Modbus slaveId、OPC UA endpointUrl 或认证信息。
+- 第一阶段设备不单独选择协议；后续可允许设备覆盖少量连接参数，但不应随意绕过产品协议约束。
 
 ### 4.4 遥测数据 Telemetry
 
@@ -228,7 +239,113 @@ Device 1 ── N Sensor
 - 告警状态至少包括 `open` 和 `acknowledged`。
 - 告警支持列表筛选、查看详情和确认处理。
 
-## 5. 数据上报与解析流程
+## 5. 协议接入模型
+
+协议接入遵循“产品定义协议能力，设备保存实例参数”的原则。
+
+### 5.1 协议绑定边界
+
+产品层负责：
+
+- 默认协议类型。
+- 协议级解析模板。
+- 数据格式约束。
+- 传感器 key 与协议字段、寄存器、节点或报文位置的映射。
+
+设备层负责：
+
+- 设备身份标识。
+- 密钥或认证信息。
+- IP、端口、clientId、slaveId、endpointUrl 等实例级连接参数。
+- 少量允许覆盖的连接配置。
+
+平台协议入口负责：
+
+- 接收或采集不同协议的数据。
+- 根据协议上下文定位设备。
+- 校验该设备所属产品是否允许对应协议。
+- 将协议数据转换为统一遥测格式。
+
+不采用：
+
+```text
+任何协议传入同一 deviceKey 都默认接受和解析
+```
+
+原因：
+
+- 不利于安全控制。
+- 不利于判断设备真实接入方式。
+- 不利于定位协议错误和解析错误。
+- Modbus / OPC UA 与 HTTP / MQTT / TCP 的连接模型差异较大。
+
+### 5.2 协议类型
+
+第一阶段已有：
+
+```text
+HTTP
+```
+
+下一阶段优先支持：
+
+```text
+MQTT
+TCP
+```
+
+后续支持：
+
+```text
+MODBUS
+OPC_UA
+```
+
+### 5.3 协议语义
+
+| 协议 | 典型模式 | 产品配置 | 设备配置 |
+|---|---|---|---|
+| HTTP | 设备主动上报 | Payload 格式、字段映射 | deviceKey、secret |
+| MQTT | 设备主动上报 | Topic 模板、Payload 格式、字段映射 | clientId、username、secret |
+| TCP | 设备长连接或短连接上报 | 报文帧格式、解析规则、字段映射 | 连接标识、远端地址、密钥 |
+| MODBUS | 平台主动采集 | 寄存器映射、数据类型、采集周期 | IP、端口、slaveId、串口参数 |
+| OPC_UA | 平台主动采集或订阅 | Node 映射、订阅配置、字段映射 | endpointUrl、认证信息 |
+
+### 5.4 演进阶段
+
+第一阶段：
+
+- 产品保留单一默认协议字段。
+- 当前实现以 HTTP 为主。
+- 设备继承产品协议，不单独选择协议。
+
+第二阶段：
+
+- 支持 MQTT 和 TCP。
+- 增加产品级协议配置。
+- 增加设备级连接配置。
+- 协议入口收到数据后，必须验证设备所属产品允许该协议。
+
+第三阶段：
+
+- 支持一个产品多个协议通道。
+- 引入产品协议配置表。
+- 支持 Modbus / OPC UA 这类主动采集协议。
+
+未来产品多协议配置可演进为：
+
+```text
+olh_product_protocol
+- id
+- product_id
+- protocol_type
+- enabled
+- parser_config
+- created_at
+- updated_at
+```
+
+## 6. 数据上报与解析流程
 
 设备上报示例：
 
@@ -247,22 +364,27 @@ Device 1 ── N Sensor
 平台处理流程：
 
 ```text
-1. 根据 deviceKey 查找设备
-2. 校验设备 secret
-3. 根据 device.productId 加载产品
-4. 加载产品传感器定义
-5. 遍历 values 中的 key/value
-6. 根据 sensorKey 匹配传感器定义
-7. 写入 telemetry_data
-8. 更新 telemetry_latest
-9. 更新设备 lastSeenAt 和在线状态
-10. 执行规则判断
-11. 生成告警
+1. 协议入口接收数据或执行采集
+2. 根据协议上下文定位 deviceKey 或设备连接配置
+3. 根据 deviceKey 查找设备
+4. 校验设备 secret 或协议认证信息
+5. 根据 device.productId 加载产品
+6. 校验产品是否允许当前协议
+7. 加载产品协议解析模板
+8. 加载产品传感器定义
+9. 将协议数据转换为统一 values 结构
+10. 遍历 values 中的 key/value
+11. 根据 sensorKey 匹配传感器定义
+12. 写入 telemetry_data
+13. 更新 telemetry_latest
+14. 更新设备 lastSeenAt 和在线状态
+15. 执行规则判断
+16. 生成告警
 ```
 
-## 6. 控制台功能规划
+## 7. 控制台功能规划
 
-### 6.1 产品管理
+### 7.1 产品管理
 
 功能：
 
@@ -272,8 +394,10 @@ Device 1 ── N Sensor
 - 新建产品
 - 编辑产品
 - 查看产品关联的传感器定义入口
+- 设置默认接入协议
+- 后续维护协议解析模板
 
-### 6.2 传感器管理
+### 7.2 传感器管理
 
 功能：
 
@@ -293,7 +417,7 @@ Device 1 ── N Sensor
 
 同时在产品详情中提供传感器定义入口。
 
-### 6.3 设备管理
+### 7.3 设备管理
 
 功能：
 
@@ -304,6 +428,7 @@ Device 1 ── N Sensor
 - 编辑设备
 - 选择所属产品
 - 设置 GPS 或安装位置
+- 后续维护设备级连接参数
 
 不再提供：
 
@@ -311,7 +436,7 @@ Device 1 ── N Sensor
 设备直接绑定传感器
 ```
 
-### 6.4 设备状态查看
+### 7.4 设备状态查看
 
 功能：
 
@@ -322,7 +447,7 @@ Device 1 ── N Sensor
 - 已上报传感器显示最新值
 - 未上报传感器显示暂无数据
 
-### 6.5 历史数据
+### 7.5 历史数据
 
 功能：
 
@@ -339,7 +464,7 @@ Device 1 ── N Sensor
 - 某个设备电量下降趋势
 - 某产品下同类设备传感器数据对比
 
-### 6.6 规则管理
+### 7.6 规则管理
 
 功能：
 
@@ -356,7 +481,7 @@ Device 1 ── N Sensor
 - 产品级规则
 - 设备级规则
 
-### 6.7 告警中心
+### 7.7 告警中心
 
 功能：
 
@@ -366,7 +491,7 @@ Device 1 ── N Sensor
 - 查看告警详情
 - 确认告警
 
-## 7. 数据库调整建议
+## 8. 数据库调整建议
 
 当前需要从设备传感器绑定模型迁移到产品传感器定义模型。
 
@@ -395,13 +520,34 @@ olh_device
 - product_id
 ```
 
+协议字段建议按阶段增加：
+
+```text
+olh_product
+- protocol_type
+- protocol_config
+
+olh_device
+- connection_config
+```
+
+后续支持一个产品多个协议时，再引入：
+
+```text
+olh_product_protocol
+- product_id
+- protocol_type
+- enabled
+- parser_config
+```
+
 遥测表建议字段命名逐步从 `metric` 统一为 `sensor_key`。如果短期不改表结构，可以保留 `metric` 字段，但业务语义应解释为：
 
 ```text
 metric = sensorKey
 ```
 
-## 8. API 调整建议
+## 9. API 调整建议
 
 ### 产品传感器定义
 
@@ -436,7 +582,7 @@ GET /api/devices/{id}/latest
 GET /api/devices/{id}/telemetry?sensorKey=temperature&start=...&end=...&page=1&size=100
 ```
 
-## 9. 迁移计划
+## 10. 迁移计划
 
 建议按以下顺序执行：
 
@@ -449,7 +595,7 @@ GET /api/devices/{id}/telemetry?sensorKey=temperature&start=...&end=...&page=1&s
 7. 调整规则管理，按产品传感器定义选择指标。
 8. 后续再决定是否删除旧 `olh_sensor` 表。
 
-## 10. 未来扩展
+## 11. 未来扩展
 
 未来如果同一产品下不同设备存在选配或校准差异，可增加设备能力覆盖表：
 
@@ -465,7 +611,7 @@ olh_device_sensor_override
 
 该能力不属于第一阶段默认模型。
 
-## 11. 当前决策
+## 12. 当前决策
 
 当前确认采用：
 
@@ -473,12 +619,15 @@ olh_device_sensor_override
 产品定义传感器
 设备归属产品
 设备数据按产品传感器模型解析
+产品定义默认接入协议
+设备保存实例级连接参数
 ```
 
 当前确认废弃默认模型：
 
 ```text
 设备直接绑定传感器
+任意协议传入都默认解析
 ```
 
 后续所有相关迭代应以本 PRD 为准。
