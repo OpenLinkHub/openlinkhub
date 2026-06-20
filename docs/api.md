@@ -30,13 +30,18 @@ GET  /api/devices/{id}
 PUT  /api/devices/{id}
 GET  /api/devices/{id}/latest
 GET  /api/devices/{id}/telemetry?metric=temperature&start=...&end=...&limit=500
-GET  /api/devices/{id}/sensors
-POST /api/devices/{id}/sensors
-PUT  /api/sensors/{id}
-DELETE /api/sensors/{id}
 ```
 
-Sensors are bound to devices. `sensorKey` maps to the telemetry metric name, such as `temperature`, `humidity`, `battery`, or `gps`.
+Sensor definitions:
+
+```text
+GET    /api/products/{productId}/sensors
+POST   /api/products/{productId}/sensors
+PUT    /api/sensor-definitions/{id}
+DELETE /api/sensor-definitions/{id}
+```
+
+Sensors are defined on products. Devices inherit the sensor model from their product, and `sensorKey` maps to the telemetry metric name, such as `temperature`, `humidity`, `battery`, or `gps`.
 
 Ingest:
 

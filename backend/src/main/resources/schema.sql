@@ -37,6 +37,19 @@ CREATE TABLE IF NOT EXISTS olh_sensor (
     UNIQUE (device_id, sensor_key)
 );
 
+CREATE TABLE IF NOT EXISTS olh_sensor_definition (
+    id BIGSERIAL PRIMARY KEY,
+    product_id BIGINT NOT NULL REFERENCES olh_product(id) ON DELETE CASCADE,
+    name VARCHAR(120) NOT NULL,
+    sensor_key VARCHAR(120) NOT NULL,
+    sensor_type VARCHAR(40) NOT NULL DEFAULT 'number',
+    unit VARCHAR(40),
+    description TEXT,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    UNIQUE (product_id, sensor_key)
+);
+
 CREATE TABLE IF NOT EXISTS olh_telemetry_data (
     time TIMESTAMPTZ NOT NULL,
     device_id BIGINT NOT NULL REFERENCES olh_device(id) ON DELETE CASCADE,
@@ -131,6 +144,26 @@ CROSS JOIN (
 ) AS sensor(name, sensor_key, sensor_type, unit, description)
 WHERE d.device_key = 'demo-device-001'
 ON CONFLICT (device_id, sensor_key) DO NOTHING;
+
+INSERT INTO olh_sensor_definition (product_id, name, sensor_key, sensor_type, unit, description)
+SELECT p.id, sensor.name, sensor.sensor_key, sensor.sensor_type, sensor.unit, sensor.description
+FROM olh_product p
+CROSS JOIN (
+    VALUES
+        ('GPS Location', 'gps', 'string', NULL, 'GPS or installation location payload.'),
+        ('Temperature Sensor', 'temperature', 'number', 'C', 'Temperature telemetry.'),
+        ('Humidity Sensor', 'humidity', 'number', '%', 'Humidity telemetry.'),
+        ('Battery Level', 'battery', 'number', '%', 'Battery level telemetry.'),
+        ('Voltage Sensor', 'voltage', 'number', 'V', 'Voltage telemetry.')
+) AS sensor(name, sensor_key, sensor_type, unit, description)
+WHERE p.code = 'env-sensor'
+ON CONFLICT (product_id, sensor_key) DO NOTHING;
+
+INSERT INTO olh_sensor_definition (product_id, name, sensor_key, sensor_type, unit, description)
+SELECT DISTINCT d.product_id, s.name, s.sensor_key, s.sensor_type, s.unit, s.description
+FROM olh_sensor s
+JOIN olh_device d ON d.id = s.device_id
+ON CONFLICT (product_id, sensor_key) DO NOTHING;
 
 INSERT INTO olh_rule (name, device_key, metric, operator, threshold, severity, description)
 VALUES (

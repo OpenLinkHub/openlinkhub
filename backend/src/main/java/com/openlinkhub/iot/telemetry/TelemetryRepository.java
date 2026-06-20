@@ -135,6 +135,8 @@ public class TelemetryRepository {
         return new TelemetryLatest(
                 rs.getLong("device_id"),
                 rs.getString("metric"),
+                null,
+                null,
                 rs.getObject("time", OffsetDateTime.class),
                 rs.getObject("numeric_value", Double.class),
                 rs.getString("text_value"),

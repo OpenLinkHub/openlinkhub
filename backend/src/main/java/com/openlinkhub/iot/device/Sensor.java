@@ -4,7 +4,7 @@ import java.time.OffsetDateTime;
 
 public record Sensor(
         Long id,
-        Long deviceId,
+        Long productId,
         String name,
         String sensorKey,
         String sensorType,

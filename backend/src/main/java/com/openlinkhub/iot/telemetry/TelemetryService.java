@@ -7,6 +7,8 @@ import com.openlinkhub.iot.alarm.AlarmRepository;
 import com.openlinkhub.iot.common.ApiException;
 import com.openlinkhub.iot.device.Device;
 import com.openlinkhub.iot.device.DeviceRepository;
+import com.openlinkhub.iot.device.Sensor;
+import com.openlinkhub.iot.device.SensorRepository;
 import com.openlinkhub.iot.rule.Rule;
 import com.openlinkhub.iot.rule.RuleRepository;
 import org.springframework.http.HttpStatus;
@@ -23,17 +25,20 @@ public class TelemetryService {
 
     private final DeviceRepository deviceRepository;
     private final TelemetryRepository telemetryRepository;
+    private final SensorRepository sensorRepository;
     private final RuleRepository ruleRepository;
     private final AlarmRepository alarmRepository;
     private final ObjectMapper objectMapper;
 
     public TelemetryService(DeviceRepository deviceRepository,
                             TelemetryRepository telemetryRepository,
+                            SensorRepository sensorRepository,
                             RuleRepository ruleRepository,
                             AlarmRepository alarmRepository,
                             ObjectMapper objectMapper) {
         this.deviceRepository = deviceRepository;
         this.telemetryRepository = telemetryRepository;
+        this.sensorRepository = sensorRepository;
         this.ruleRepository = ruleRepository;
         this.alarmRepository = alarmRepository;
         this.objectMapper = objectMapper;
@@ -75,7 +80,26 @@ public class TelemetryService {
     }
 
     public List<TelemetryLatest> latestByDevice(Long deviceId) {
-        return telemetryRepository.latestByDevice(deviceId);
+        Device device = deviceRepository.findById(deviceId)
+                .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Device not found"));
+        List<TelemetryLatest> latest = telemetryRepository.latestByDevice(deviceId);
+        Map<String, TelemetryLatest> latestByMetric = latest.stream()
+                .collect(java.util.stream.Collectors.toMap(TelemetryLatest::metric, item -> item, (left, right) -> left));
+        List<Sensor> definitions = sensorRepository.findByProductId(device.productId());
+        List<TelemetryLatest> result = new ArrayList<>();
+        for (Sensor definition : definitions) {
+            TelemetryLatest item = latestByMetric.remove(definition.sensorKey());
+            if (item == null) {
+                result.add(new TelemetryLatest(device.id(), definition.sensorKey(), definition.name(), definition.unit(),
+                        null, null, null, definition.sensorType(), "missing", null));
+            } else {
+                result.add(new TelemetryLatest(item.deviceId(), item.metric(), definition.name(), definition.unit(),
+                        item.time(), item.numericValue(), item.textValue(), item.valueType(), item.quality(), item.rawValue()));
+            }
+        }
+        latestByMetric.values().forEach(item -> result.add(new TelemetryLatest(item.deviceId(), item.metric(), null, null,
+                item.time(), item.numericValue(), item.textValue(), item.valueType(), item.quality(), item.rawValue())));
+        return result;
     }
 
     public List<TelemetryPoint> historyByDevice(Long deviceId, String metric, OffsetDateTime start, OffsetDateTime end, int limit) {

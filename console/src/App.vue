@@ -177,7 +177,7 @@
                 <th>位置 / GPS</th>
                 <th>状态</th>
                 <th>最后上报</th>
-                <th class="actions-col xwide">操作</th>
+                <th class="actions-col">操作</th>
               </tr>
             </thead>
             <tbody>
@@ -192,14 +192,68 @@
                   <button class="table-action" @click="openDeviceModal(device)">
                     <Edit3 :size="15" /> 编辑
                   </button>
-                  <button class="table-action" @click="openSensorManager(device)">
-                    <SlidersHorizontal :size="15" /> 传感器
-                  </button>
                 </td>
               </tr>
             </tbody>
           </table>
           <Pagination :page="devicePage.page" :size="devicePage.size" :total="devicePage.total" @change="loadDevices" />
+        </div>
+      </section>
+
+      <section v-if="activeView === 'sensors'" class="view">
+        <div class="panel">
+          <div class="table-toolbar">
+            <div>
+              <p class="eyebrow">Product Sensor Model</p>
+              <h2>传感器管理</h2>
+            </div>
+            <button class="primary-button" :disabled="!sensorQuery.productId" @click="openSensorModal()">
+              <Plus :size="17" />
+              新建传感器
+            </button>
+          </div>
+          <div class="filter-row sensor-filter">
+            <select v-model.number="sensorQuery.productId" @change="loadSensors(1)">
+              <option disabled value="">选择产品</option>
+              <option v-for="product in products" :key="product.id" :value="product.id">{{ product.name }}</option>
+            </select>
+            <input v-model="sensorQuery.keyword" placeholder="搜索名称 / Key / 描述" @keyup.enter="loadSensors(1)" />
+            <button class="primary-button" @click="loadSensors(1)"><Search :size="17" /> 查询</button>
+            <button class="ghost-button" @click="resetSensors">重置</button>
+          </div>
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>传感器名称</th>
+                <th>传感器 Key</th>
+                <th>所属产品</th>
+                <th>类型</th>
+                <th>单位</th>
+                <th>描述</th>
+                <th class="actions-col wide">操作</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="sensor in sensorRecords" :key="sensor.id">
+                <td><strong>{{ sensor.name }}</strong></td>
+                <td><code>{{ sensor.sensorKey }}</code></td>
+                <td>{{ productName(sensor.productId) }}</td>
+                <td>{{ sensor.sensorType }}</td>
+                <td>{{ sensor.unit || '-' }}</td>
+                <td>{{ sensor.description || '-' }}</td>
+                <td>
+                  <button class="table-action" @click="openSensorModal(sensor)">
+                    <Edit3 :size="15" /> 编辑
+                  </button>
+                  <button class="table-action danger" @click="deleteSensor(sensor.id)">删除</button>
+                </td>
+              </tr>
+              <tr v-if="!sensorRecords.length">
+                <td colspan="7" class="table-empty">请选择产品后维护该产品的传感器定义。</td>
+              </tr>
+            </tbody>
+          </table>
+          <Pagination :page="sensorPage.page" :size="sensorPage.size" :total="sensorTotal" @change="changeSensorPage" />
         </div>
       </section>
 
@@ -266,9 +320,13 @@
             </button>
           </div>
           <div class="filter-row">
+            <select v-model.number="historyFilter.productId" @change="onHistoryProductChange">
+              <option disabled value="">选择产品</option>
+              <option v-for="product in products" :key="product.id" :value="product.id">{{ product.name }}</option>
+            </select>
             <select v-model.number="historyFilter.deviceId" @change="loadHistorySensors">
               <option disabled value="">选择设备</option>
-              <option v-for="device in devices" :key="device.id" :value="device.id">{{ device.name }} / {{ device.deviceKey }}</option>
+              <option v-for="device in historyDevices" :key="device.id" :value="device.id">{{ device.name }} / {{ device.deviceKey }}</option>
             </select>
             <select v-model="historyFilter.metric">
               <option value="">全部传感器</option>
@@ -282,18 +340,6 @@
               <Search :size="17" />
               查询
             </button>
-          </div>
-          <div class="filter-row rule-filter">
-            <input v-model="ruleQuery.keyword" placeholder="搜索规则名称 / 描述" @keyup.enter="loadRules(1)" />
-            <input v-model="ruleQuery.deviceKey" placeholder="设备 Key" @keyup.enter="loadRules(1)" />
-            <input v-model="ruleQuery.metric" placeholder="传感器 Key" @keyup.enter="loadRules(1)" />
-            <select v-model="ruleQuery.enabled">
-              <option value="">全部状态</option>
-              <option value="true">enabled</option>
-              <option value="false">disabled</option>
-            </select>
-            <button class="primary-button" @click="loadRules(1)"><Search :size="17" /> 查询</button>
-            <button class="ghost-button" @click="resetRules">重置</button>
           </div>
           <table class="data-table">
             <thead>
@@ -322,7 +368,6 @@
               </tr>
             </tbody>
           </table>
-          <Pagination :page="rulePage.page" :size="rulePage.size" :total="rulePage.total" @change="loadRules" />
         </div>
       </section>
 
@@ -337,6 +382,18 @@
               <Plus :size="17" />
               新建规则
             </button>
+          </div>
+          <div class="filter-row rule-filter">
+            <input v-model="ruleQuery.keyword" placeholder="搜索规则名称 / 描述" @keyup.enter="loadRules(1)" />
+            <input v-model="ruleQuery.deviceKey" placeholder="设备 Key" @keyup.enter="loadRules(1)" />
+            <input v-model="ruleQuery.metric" placeholder="传感器 Key" @keyup.enter="loadRules(1)" />
+            <select v-model="ruleQuery.enabled">
+              <option value="">全部状态</option>
+              <option value="true">enabled</option>
+              <option value="false">disabled</option>
+            </select>
+            <button class="primary-button" @click="loadRules(1)"><Search :size="17" /> 查询</button>
+            <button class="ghost-button" @click="resetRules">重置</button>
           </div>
           <table class="data-table">
             <thead>
@@ -369,6 +426,7 @@
               </tr>
             </tbody>
           </table>
+          <Pagination :page="rulePage.page" :size="rulePage.size" :total="rulePage.total" @change="loadRules" />
         </div>
       </section>
 
@@ -449,7 +507,7 @@
       </section>
 
       <div v-if="modal" class="modal-backdrop" @click.self="closeModal">
-        <section class="modal-card" :class="{ large: ['device-status', 'sensor-manager', 'ingest'].includes(modal.type) }">
+        <section class="modal-card" :class="{ large: ['device-status', 'ingest'].includes(modal.type) }">
           <header class="modal-header">
             <div>
               <p class="eyebrow">{{ modal.eyebrow }}</p>
@@ -487,42 +545,11 @@
             </footer>
           </form>
 
-          <div v-if="modal.type === 'sensor-manager'" class="modal-section">
-            <div class="table-toolbar compact">
-              <h2>绑定传感器</h2>
-              <button class="primary-button" @click="openSensorModal(modal.item)">
-                <Plus :size="17" />
-                添加传感器
-              </button>
-            </div>
-            <table class="data-table">
-              <thead>
-                <tr>
-                  <th>名称</th>
-                  <th>Key</th>
-                  <th>类型</th>
-                  <th>单位</th>
-                  <th>描述</th>
-                  <th class="actions-col wide">操作</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr v-for="sensor in sensors" :key="sensor.id">
-                  <td><strong>{{ sensor.name }}</strong></td>
-                  <td><code>{{ sensor.sensorKey }}</code></td>
-                  <td>{{ sensor.sensorType }}</td>
-                  <td>{{ sensor.unit || '-' }}</td>
-                  <td>{{ sensor.description || '-' }}</td>
-                  <td>
-                    <button class="table-action" @click="openSensorModal(modal.item, sensor)">编辑</button>
-                    <button class="table-action danger" @click="deleteSensor(sensor.id)">删除</button>
-                  </td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-
           <form v-if="modal.type === 'sensor'" class="form-grid" @submit.prevent="saveSensor">
+            <select v-model.number="sensorForm.productId">
+              <option disabled value="">选择产品</option>
+              <option v-for="product in products" :key="product.id" :value="product.id">{{ product.name }}</option>
+            </select>
             <input v-model="sensorForm.name" placeholder="传感器名称，如 温度传感器" />
             <input v-model="sensorForm.sensorKey" placeholder="传感器 Key，如 temperature" />
             <select v-model="sensorForm.sensorType">
@@ -576,7 +603,7 @@
             </div>
             <div class="latest-grid full">
               <div v-for="item in latest" :key="item.metric" class="latest-item">
-                <span>{{ item.metric }}</span>
+                <span>{{ item.sensorName || item.metric }}<small v-if="item.unit"> {{ item.unit }}</small></span>
                 <strong>{{ displayValue(item) }}</strong>
               </div>
               <div v-if="!latest.length" class="empty">暂无最新数据。</div>
@@ -654,7 +681,7 @@ import {
 } from 'lucide-vue-next';
 import { api } from './api';
 
-const viewKeys = ['overview', 'products', 'device-management', 'device-status', 'history', 'rules', 'alarms', 'ingest'];
+const viewKeys = ['overview', 'products', 'sensors', 'device-management', 'device-status', 'history', 'rules', 'alarms', 'ingest'];
 const hashView = window.location.hash.replace('#', '');
 const activeView = ref(viewKeys.includes(hashView) ? hashView : 'overview');
 const error = ref('');
@@ -682,7 +709,7 @@ const productForm = reactive({
   thingModel: '[{"key":"temperature","name":"Temperature","type":"number","unit":"C"}]',
 });
 const deviceForm = reactive({ id: null, productId: '', name: '', deviceKey: '', secret: '', location: '' });
-const sensorForm = reactive({ id: null, deviceId: null, name: '', sensorKey: '', sensorType: 'number', unit: '', description: '' });
+const sensorForm = reactive({ id: null, productId: '', name: '', sensorKey: '', sensorType: 'number', unit: '', description: '' });
 const ruleForm = reactive({
   id: null,
   name: '',
@@ -693,9 +720,10 @@ const ruleForm = reactive({
   severity: 'warning',
   enabled: true,
 });
-const historyFilter = reactive({ deviceId: '', metric: '', start: '', end: '' });
+const historyFilter = reactive({ productId: '', deviceId: '', metric: '', start: '', end: '' });
 const productQuery = reactive({ keyword: '', category: '', page: 1, size: 10 });
 const deviceQuery = reactive({ keyword: '', productId: '', status: '', page: 1, size: 10 });
+const sensorQuery = reactive({ productId: '', keyword: '', page: 1, size: 10 });
 const ruleQuery = reactive({ keyword: '', deviceKey: '', metric: '', enabled: '', page: 1, size: 10 });
 const alarmQuery = reactive({ keyword: '', status: '', severity: '', page: 1, size: 10 });
 const ingestForm = reactive({
@@ -710,6 +738,7 @@ const ingestForm = reactive({
 const navItems = [
   { key: 'overview', label: '总览', icon: Home },
   { key: 'products', label: '产品', icon: Boxes },
+  { key: 'sensors', label: '传感器管理', icon: SlidersHorizontal },
   { key: 'device-management', label: '设备管理', icon: Cpu },
   { key: 'device-status', label: '设备状态', icon: Gauge },
   { key: 'history', label: '历史数据', icon: Database },
@@ -721,6 +750,7 @@ const navItems = [
 const titles = {
   overview: '连接态势',
   products: '产品与物模型',
+  sensors: '传感器管理',
   'device-management': '设备管理',
   'device-status': '设备状态查看',
   history: '历史数据分析',
@@ -734,6 +764,28 @@ const products = computed(() => productPage.value.records || []);
 const devices = computed(() => devicePage.value.records || []);
 const rules = computed(() => rulePage.value.records || []);
 const alarms = computed(() => alarmPage.value.records || []);
+const filteredSensors = computed(() => {
+  const keyword = sensorQuery.keyword.trim().toLowerCase();
+  if (!keyword) return sensors.value;
+  return sensors.value.filter((sensor) => [
+    sensor.name,
+    sensor.sensorKey,
+    sensor.sensorType,
+    sensor.unit,
+    sensor.description,
+  ].some((value) => String(value || '').toLowerCase().includes(keyword)));
+});
+const sensorTotal = computed(() => filteredSensors.value.length);
+const sensorPage = computed(() => ({
+  page: sensorQuery.page,
+  size: sensorQuery.size,
+  total: sensorTotal.value,
+}));
+const sensorRecords = computed(() => {
+  const start = (sensorQuery.page - 1) * sensorQuery.size;
+  return filteredSensors.value.slice(start, start + sensorQuery.size);
+});
+const historyDevices = computed(() => devices.value.filter((device) => !historyFilter.productId || device.productId === historyFilter.productId));
 const metrics = computed(() => [
   { label: '产品', value: summary.value.productCount || 0, icon: Boxes },
   { label: '设备', value: summary.value.deviceCount || 0, icon: Cpu },
@@ -750,8 +802,12 @@ const curlExample = computed(() => `curl -X POST http://localhost:18080/api/inge
 function switchView(view) {
   activeView.value = view;
   window.history.replaceState(null, '', `#${view}`);
+  if (view === 'sensors' && !sensorQuery.productId && products.value.length) {
+    sensorQuery.productId = products.value[0].id;
+    loadSensors(1);
+  }
   if (view === 'history' && !historyFilter.deviceId && devices.value.length) {
-    historyFilter.deviceId = devices.value[0].id;
+    ensureHistoryDefaults();
     loadHistorySensors();
   }
 }
@@ -761,6 +817,11 @@ async function refreshAll() {
     Object.assign(health, await api.health());
     summary.value = await api.summary();
     await Promise.all([loadProducts(), loadDevices(), loadRules(), loadAlarms()]);
+    ensureSensorProduct();
+    if (activeView.value === 'sensors') {
+      await loadSensors(sensorQuery.page);
+    }
+    ensureHistoryDefaults();
     if (!selectedDevice.value && devices.value.length) {
       selectedDevice.value = devices.value[0];
     }
@@ -777,6 +838,16 @@ async function loadDevices(page = deviceQuery.page) {
   deviceQuery.page = page;
   devicePage.value = await api.devices(deviceQuery);
   await refreshLatestForDevices();
+}
+
+async function loadSensors(page = sensorQuery.page) {
+  ensureSensorProduct();
+  sensorQuery.page = page;
+  if (!sensorQuery.productId) {
+    sensors.value = [];
+    return;
+  }
+  sensors.value = await api.sensors(sensorQuery.productId);
 }
 
 async function loadRules(page = ruleQuery.page) {
@@ -802,6 +873,11 @@ function resetDevices() {
   loadDevices(1);
 }
 
+function resetSensors() {
+  Object.assign(sensorQuery, { productId: products.value[0]?.id || '', keyword: '', page: 1, size: 10 });
+  loadSensors(1);
+}
+
 function resetRules() {
   Object.assign(ruleQuery, { keyword: '', deviceKey: '', metric: '', enabled: '', page: 1, size: 10 });
   loadRules(1);
@@ -819,6 +895,16 @@ async function refreshLatestForDevices() {
   if (selectedDevice.value) {
     latest.value = latestByDevice[selectedDevice.value.id] || [];
   }
+}
+
+function ensureSensorProduct() {
+  if (!sensorQuery.productId && products.value.length) {
+    sensorQuery.productId = products.value[0].id;
+  }
+}
+
+function productName(productId) {
+  return products.value.find((product) => product.id === productId)?.name || '-';
 }
 
 function openProductModal(product) {
@@ -875,23 +961,18 @@ async function saveDevice() {
   });
 }
 
-async function openSensorManager(device) {
-  selectedDevice.value = device;
-  sensors.value = await api.sensors(device.id);
-  modal.value = { type: 'sensor-manager', title: `${device.name} / 传感器绑定`, eyebrow: 'Sensor Binding', item: device };
-}
-
-function openSensorModal(device, sensor) {
+function openSensorModal(sensor) {
+  ensureSensorProduct();
   Object.assign(sensorForm, {
     id: sensor?.id || null,
-    deviceId: device.id,
+    productId: sensor?.productId || sensorQuery.productId || products.value[0]?.id || '',
     name: sensor?.name || '',
     sensorKey: sensor?.sensorKey || '',
     sensorType: sensor?.sensorType || 'number',
     unit: sensor?.unit || '',
     description: sensor?.description || '',
   });
-  modal.value = { type: 'sensor', title: sensor ? '编辑传感器' : '添加传感器', eyebrow: 'Sensor', parentDevice: device };
+  modal.value = { type: 'sensor', title: sensor ? '编辑传感器' : '新建传感器', eyebrow: 'Sensor Definition' };
 }
 
 async function saveSensor() {
@@ -901,15 +982,13 @@ async function saveSensor() {
       await api.updateSensor(sensorForm.id, payload);
       notify('传感器已更新');
     } else {
-      await api.createSensor(sensorForm.deviceId, payload);
-      notify('传感器已绑定');
+      await api.createSensor(sensorForm.productId, payload);
+      notify('传感器已创建');
     }
-    const device = devices.value.find((item) => item.id === sensorForm.deviceId);
-    if (device) {
-      await openSensorManager(device);
-    } else {
-      closeModal();
-    }
+    sensorQuery.productId = sensorForm.productId;
+    closeModal();
+    await loadSensors(1);
+    await refreshLatestForDevices();
   });
 }
 
@@ -917,9 +996,8 @@ async function deleteSensor(id) {
   await run(async () => {
     await api.deleteSensor(id);
     notify('传感器已删除');
-    if (selectedDevice.value) {
-      sensors.value = await api.sensors(selectedDevice.value.id);
-    }
+    await loadSensors(sensorQuery.page);
+    await refreshLatestForDevices();
   });
 }
 
@@ -973,9 +1051,38 @@ async function toggleRule(rule) {
 async function loadHistorySensors() {
   historyFilter.metric = '';
   historyRows.value = [];
-  if (historyFilter.deviceId) {
-    historySensors.value = await api.sensors(historyFilter.deviceId);
+  const device = devices.value.find((item) => item.id === historyFilter.deviceId);
+  if (device && !historyFilter.productId) {
+    historyFilter.productId = device.productId;
   }
+  if (historyFilter.productId) {
+    historySensors.value = await api.sensors(historyFilter.productId);
+  } else {
+    historySensors.value = [];
+  }
+}
+
+function onHistoryProductChange() {
+  const firstDevice = historyDevices.value[0];
+  historyFilter.deviceId = firstDevice?.id || '';
+  loadHistorySensors();
+}
+
+function ensureHistoryDefaults() {
+  if (!historyFilter.productId && products.value.length) {
+    historyFilter.productId = products.value[0].id;
+  }
+  if (!historyFilter.deviceId) {
+    const firstDevice = historyDevices.value[0] || devices.value[0];
+    historyFilter.deviceId = firstDevice?.id || '';
+    if (firstDevice && !historyFilter.productId) {
+      historyFilter.productId = firstDevice.productId;
+    }
+  }
+}
+
+function changeSensorPage(page) {
+  sensorQuery.page = page;
 }
 
 async function queryHistory() {
@@ -1074,14 +1181,14 @@ function notify(message) {
 function latestSummary(deviceId) {
   const values = latestByDevice[deviceId] || [];
   if (!values.length) return '-';
-  return values.slice(0, 4).map((item) => `${item.metric}: ${displayValue(item)}`).join(' / ');
+  return values.slice(0, 4).map((item) => `${item.sensorName || item.metric}: ${displayValue(item)}`).join(' / ');
 }
 
 function displayValue(item) {
   if (item.numericValue !== null && item.numericValue !== undefined) {
     return Number(item.numericValue).toLocaleString();
   }
-  return item.textValue || item.rawValue;
+  return item.textValue || item.rawValue || '-';
 }
 
 function formatTime(value) {
@@ -1115,8 +1222,11 @@ function csvCell(value) {
 onMounted(async () => {
   await refreshAll();
   if (activeView.value === 'history' && devices.value.length) {
-    historyFilter.deviceId = devices.value[0].id;
+    ensureHistoryDefaults();
     await loadHistorySensors();
+  }
+  if (activeView.value === 'sensors') {
+    await loadSensors();
   }
 });
 

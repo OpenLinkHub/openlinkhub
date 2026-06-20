@@ -5,6 +5,8 @@ import java.time.OffsetDateTime;
 public record TelemetryLatest(
         Long deviceId,
         String metric,
+        String sensorName,
+        String unit,
         OffsetDateTime time,
         Double numericValue,
         String textValue,

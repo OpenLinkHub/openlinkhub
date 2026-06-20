@@ -16,22 +16,22 @@ public class SensorController {
         this.service = service;
     }
 
-    @GetMapping("/devices/{deviceId}/sensors")
-    public ApiResponse<List<Sensor>> list(@PathVariable Long deviceId) {
-        return ApiResponse.ok(service.findByDeviceId(deviceId));
+    @GetMapping("/products/{productId}/sensors")
+    public ApiResponse<List<Sensor>> list(@PathVariable Long productId) {
+        return ApiResponse.ok(service.findByProductId(productId));
     }
 
-    @PostMapping("/devices/{deviceId}/sensors")
-    public ApiResponse<Sensor> create(@PathVariable Long deviceId, @Valid @RequestBody SensorRequest request) {
-        return ApiResponse.ok(service.create(deviceId, request));
+    @PostMapping("/products/{productId}/sensors")
+    public ApiResponse<Sensor> create(@PathVariable Long productId, @Valid @RequestBody SensorRequest request) {
+        return ApiResponse.ok(service.create(productId, request));
     }
 
-    @PutMapping("/sensors/{id}")
+    @PutMapping("/sensor-definitions/{id}")
     public ApiResponse<Sensor> update(@PathVariable Long id, @Valid @RequestBody SensorRequest request) {
         return ApiResponse.ok(service.update(id, request));
     }
 
-    @DeleteMapping("/sensors/{id}")
+    @DeleteMapping("/sensor-definitions/{id}")
     public ApiResponse<Void> delete(@PathVariable Long id) {
         service.delete(id);
         return ApiResponse.ok(null);

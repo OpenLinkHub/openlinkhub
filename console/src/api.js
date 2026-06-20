@@ -47,10 +47,10 @@ export const api = {
     if (end) params.set('end', end);
     return request(`/api/devices/${id}/telemetry?${params.toString()}`);
   },
-  sensors: (deviceId) => request(`/api/devices/${deviceId}/sensors`),
-  createSensor: (deviceId, payload) => request(`/api/devices/${deviceId}/sensors`, { method: 'POST', body: JSON.stringify(payload) }),
-  updateSensor: (id, payload) => request(`/api/sensors/${id}`, { method: 'PUT', body: JSON.stringify(payload) }),
-  deleteSensor: (id) => request(`/api/sensors/${id}`, { method: 'DELETE' }),
+  sensors: (productId) => request(`/api/products/${productId}/sensors`),
+  createSensor: (productId, payload) => request(`/api/products/${productId}/sensors`, { method: 'POST', body: JSON.stringify(payload) }),
+  updateSensor: (id, payload) => request(`/api/sensor-definitions/${id}`, { method: 'PUT', body: JSON.stringify(payload) }),
+  deleteSensor: (id) => request(`/api/sensor-definitions/${id}`, { method: 'DELETE' }),
   rules: (params = {}) => request(withQuery('/api/rules', params)),
   createRule: (payload) => request('/api/rules', { method: 'POST', body: JSON.stringify(payload) }),
   updateRule: (id, payload) => request(`/api/rules/${id}`, { method: 'PUT', body: JSON.stringify(payload) }),

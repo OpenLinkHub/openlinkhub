@@ -14,8 +14,9 @@ The backend keeps clear module boundaries:
 
 ```text
 product      product and thing model metadata
-device       device registry, secrets, and bound sensors
-telemetry    HTTP ingest, latest data, history data
+sensor       product-level sensor definitions
+device       device registry, product selection, and secrets
+telemetry    HTTP ingest, latest data, history data by sensor key
 rule         threshold rules
 alarm        alarm lifecycle
 dashboard    summary and recent activity
@@ -28,6 +29,7 @@ dashboard    summary and recent activity
 ```text
 Device HTTP POST
     -> device lookup and optional secret validation
+    -> resolve the device product's sensor definitions for latest status display
     -> write olh_telemetry_data hypertable, one row per sensor metric
     -> upsert olh_telemetry_latest
     -> evaluate enabled threshold rules
