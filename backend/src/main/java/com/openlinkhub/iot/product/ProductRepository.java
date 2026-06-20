@@ -20,7 +20,8 @@ public class ProductRepository {
 
     public List<Product> findAll() {
         return jdbc.sql("""
-                SELECT id, name, code, category, description, created_at, updated_at
+                SELECT id, name, code, category, protocol_type, protocol_config::text AS protocol_config,
+                       description, created_at, updated_at
                 FROM olh_product
                 ORDER BY id DESC
                 """)
@@ -43,7 +44,8 @@ public class ProductRepository {
                 WHERE TRUE
                 """ + keywordFilter + categoryFilter);
         JdbcClient.StatementSpec dataSpec = jdbc.sql("""
-                SELECT id, name, code, category, description, created_at, updated_at
+                SELECT id, name, code, category, protocol_type, protocol_config::text AS protocol_config,
+                       description, created_at, updated_at
                 FROM olh_product
                 WHERE TRUE
                 """ + keywordFilter + categoryFilter + """
@@ -73,7 +75,8 @@ public class ProductRepository {
 
     public Optional<Product> findById(Long id) {
         return jdbc.sql("""
-                SELECT id, name, code, category, description, created_at, updated_at
+                SELECT id, name, code, category, protocol_type, protocol_config::text AS protocol_config,
+                       description, created_at, updated_at
                 FROM olh_product
                 WHERE id = :id
                 """)
@@ -84,13 +87,17 @@ public class ProductRepository {
 
     public Product create(ProductRequest request) {
         return jdbc.sql("""
-                INSERT INTO olh_product (name, code, category, description)
-                VALUES (:name, :code, COALESCE(:category, 'general'), :description)
-                RETURNING id, name, code, category, description, created_at, updated_at
+                INSERT INTO olh_product (name, code, category, protocol_type, protocol_config, description)
+                VALUES (:name, :code, COALESCE(:category, 'general'), :protocolType,
+                        CAST(:protocolConfig AS jsonb), :description)
+                RETURNING id, name, code, category, protocol_type, protocol_config::text AS protocol_config,
+                          description, created_at, updated_at
                 """)
                 .param("name", request.name())
                 .param("code", request.code())
                 .param("category", request.category())
+                .param("protocolType", normalizeProtocolType(request.protocolType()))
+                .param("protocolConfig", normalizeJson(request.protocolConfig()))
                 .param("description", request.description())
                 .query(this::mapProduct)
                 .single();
@@ -102,15 +109,20 @@ public class ProductRepository {
                 SET name = :name,
                     code = :code,
                     category = COALESCE(:category, 'general'),
+                    protocol_type = :protocolType,
+                    protocol_config = CAST(:protocolConfig AS jsonb),
                     description = :description,
                     updated_at = NOW()
                 WHERE id = :id
-                RETURNING id, name, code, category, description, created_at, updated_at
+                RETURNING id, name, code, category, protocol_type, protocol_config::text AS protocol_config,
+                          description, created_at, updated_at
                 """)
                 .param("id", id)
                 .param("name", request.name())
                 .param("code", request.code())
                 .param("category", request.category())
+                .param("protocolType", normalizeProtocolType(request.protocolType()))
+                .param("protocolConfig", normalizeJson(request.protocolConfig()))
                 .param("description", request.description())
                 .query(this::mapProduct)
                 .single();
@@ -122,9 +134,19 @@ public class ProductRepository {
                 rs.getString("name"),
                 rs.getString("code"),
                 rs.getString("category"),
+                rs.getString("protocol_type"),
+                rs.getString("protocol_config"),
                 rs.getString("description"),
                 rs.getObject("created_at", java.time.OffsetDateTime.class),
                 rs.getObject("updated_at", java.time.OffsetDateTime.class)
         );
+    }
+
+    private String normalizeProtocolType(String value) {
+        return value == null || value.isBlank() ? "HTTP" : value;
+    }
+
+    private String normalizeJson(String value) {
+        return value == null || value.isBlank() ? "{}" : value;
     }
 }

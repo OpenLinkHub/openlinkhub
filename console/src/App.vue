@@ -118,6 +118,7 @@
                 <th>产品名称</th>
                 <th>编码</th>
                 <th>分类</th>
+                <th>默认协议</th>
                 <th>描述</th>
                 <th>创建时间</th>
                 <th class="actions-col wide">操作</th>
@@ -128,6 +129,7 @@
                 <td><strong>{{ product.name }}</strong></td>
                 <td><code>{{ product.code }}</code></td>
                 <td>{{ product.category }}</td>
+                <td><span class="protocol-pill">{{ product.protocolType || 'HTTP' }}</span></td>
                 <td>{{ product.description || '-' }}</td>
                 <td>{{ formatDate(product.createdAt) }}</td>
                 <td>
@@ -177,6 +179,7 @@
                 <th>设备名称</th>
                 <th>Device Key</th>
                 <th>产品</th>
+                <th>协议</th>
                 <th>位置 / GPS</th>
                 <th>状态</th>
                 <th>最后上报</th>
@@ -188,6 +191,7 @@
                 <td><strong>{{ device.name }}</strong></td>
                 <td><code>{{ device.deviceKey }}</code></td>
                 <td>{{ device.productName }}</td>
+                <td><span class="protocol-pill">{{ device.productProtocolType || '-' }}</span></td>
                 <td>{{ device.location || '-' }}</td>
                 <td><span :class="['status-pill', device.status]">{{ device.status }}</span></td>
                 <td>{{ formatDate(device.lastSeenAt) }}</td>
@@ -537,8 +541,20 @@
               <small>例如 sensor、gateway、meter。</small>
             </label>
             <label class="field">
+              <span>默认接入协议</span>
+              <select v-model="productForm.protocolType">
+                <option v-for="type in protocolTypes" :key="type" :value="type">{{ type }}</option>
+              </select>
+              <small>设备默认继承产品协议，后续协议入口会据此校验。</small>
+            </label>
+            <label class="field">
               <span>产品描述</span>
               <textarea v-model="productForm.description"></textarea>
+            </label>
+            <label class="field full">
+              <span>协议解析模板</span>
+              <textarea v-model="productForm.protocolConfig"></textarea>
+              <small>JSON 格式。HTTP 可留空，MQTT/TCP 后续用于 topic、报文格式和字段映射。</small>
             </label>
             <footer class="modal-actions">
               <button type="button" class="ghost-button" @click="closeModal">取消</button>
@@ -554,6 +570,11 @@
                 <option v-for="product in products" :key="product.id" :value="product.id">{{ product.name }}</option>
               </select>
               <small>设备会继承该产品下定义的传感器类型。</small>
+            </label>
+            <label class="field">
+              <span>继承协议</span>
+              <input :value="selectedDeviceProduct?.protocolType || 'HTTP'" disabled />
+              <small>协议类型来自产品；设备只维护实例级连接参数。</small>
             </label>
             <label class="field">
               <span>设备名称</span>
@@ -573,6 +594,11 @@
               <span>GPS / 安装位置</span>
               <input v-model="deviceForm.location" />
               <small>例如 31.2304,121.4737，或填写具体安装位置。</small>
+            </label>
+            <label class="field full">
+              <span>连接参数</span>
+              <textarea v-model="deviceForm.connectionConfig"></textarea>
+              <small>JSON 格式。用于保存 MQTT clientId、TCP 地址、Modbus slaveId、OPC UA endpointUrl 等设备实例差异。</small>
             </label>
             <footer class="modal-actions">
               <button type="button" class="ghost-button" @click="closeModal">取消</button>
@@ -697,10 +723,24 @@
                 <strong>{{ modal.item.category || '-' }}</strong>
               </div>
               <div>
+                <span>默认协议</span>
+                <strong>{{ modal.item.protocolType || 'HTTP' }}</strong>
+              </div>
+              <div>
                 <span>传感器属性</span>
                 <strong>{{ productModelSensors.length }}</strong>
               </div>
             </div>
+
+            <section class="model-section">
+              <div class="table-toolbar compact">
+                <div>
+                  <p class="eyebrow">Protocol Template</p>
+                  <h2>协议解析模板</h2>
+                </div>
+              </div>
+              <pre class="model-code">{{ formatJson(modal.item.protocolConfig) }}</pre>
+            </section>
 
             <section class="model-section">
               <div class="table-toolbar compact">
@@ -848,15 +888,18 @@ const rulePage = ref({ records: [], total: 0, page: 1, size: 10 });
 const alarmPage = ref({ records: [], total: 0, page: 1, size: 10 });
 const selectedDevice = ref(null);
 const modal = ref(null);
+const protocolTypes = ['HTTP', 'MQTT', 'TCP', 'MODBUS', 'OPC_UA'];
 
 const productForm = reactive({
   id: null,
   name: '',
   code: '',
   category: 'sensor',
+  protocolType: 'HTTP',
+  protocolConfig: '{}',
   description: '',
 });
-const deviceForm = reactive({ id: null, productId: '', name: '', deviceKey: '', secret: '', location: '' });
+const deviceForm = reactive({ id: null, productId: '', name: '', deviceKey: '', secret: '', connectionConfig: '{}', location: '' });
 const sensorForm = reactive({ id: null, productId: '', name: '', sensorKey: '', sensorType: 'number', unit: '', description: '' });
 const ruleForm = reactive({
   id: null,
@@ -934,6 +977,7 @@ const sensorRecords = computed(() => {
   return filteredSensors.value.slice(start, start + sensorQuery.size);
 });
 const historyDevices = computed(() => devices.value.filter((device) => !historyFilter.productId || device.productId === historyFilter.productId));
+const selectedDeviceProduct = computed(() => products.value.find((product) => product.id === deviceForm.productId));
 const metrics = computed(() => [
   { label: '产品', value: summary.value.productCount || 0, icon: Boxes },
   { label: '设备', value: summary.value.deviceCount || 0, icon: Cpu },
@@ -1061,6 +1105,8 @@ function openProductModal(product) {
     name: product?.name || '',
     code: product?.code || '',
     category: product?.category || 'sensor',
+    protocolType: product?.protocolType || 'HTTP',
+    protocolConfig: product?.protocolConfig || '{}',
     description: product?.description || '',
   });
   modal.value = { type: 'product', title: product ? '编辑产品' : '新建产品', eyebrow: 'Product' };
@@ -1095,6 +1141,7 @@ function openDeviceModal(device) {
     name: device?.name || '',
     deviceKey: device?.deviceKey || '',
     secret: device?.secret || '',
+    connectionConfig: device?.connectionConfig || '{}',
     location: device?.location || '',
   });
   modal.value = { type: 'device', title: device ? '编辑设备' : '新建设备', eyebrow: 'Device' };
@@ -1366,6 +1413,15 @@ function formatDate(value) {
 
 function toApiTime(value) {
   return value ? new Date(value).toISOString() : '';
+}
+
+function formatJson(value) {
+  if (!value) return '{}';
+  try {
+    return JSON.stringify(JSON.parse(value), null, 2);
+  } catch {
+    return value;
+  }
 }
 
 function csvCell(value) {

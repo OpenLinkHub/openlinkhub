@@ -5,12 +5,16 @@ CREATE TABLE IF NOT EXISTS olh_product (
     name VARCHAR(120) NOT NULL,
     code VARCHAR(80) NOT NULL UNIQUE,
     category VARCHAR(80) NOT NULL DEFAULT 'general',
+    protocol_type VARCHAR(32) NOT NULL DEFAULT 'HTTP',
+    protocol_config JSONB NOT NULL DEFAULT '{}'::jsonb,
     description TEXT,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
 ALTER TABLE olh_product DROP COLUMN IF EXISTS thing_model;
+ALTER TABLE olh_product ADD COLUMN IF NOT EXISTS protocol_type VARCHAR(32) NOT NULL DEFAULT 'HTTP';
+ALTER TABLE olh_product ADD COLUMN IF NOT EXISTS protocol_config JSONB NOT NULL DEFAULT '{}'::jsonb;
 
 CREATE TABLE IF NOT EXISTS olh_device (
     id BIGSERIAL PRIMARY KEY,
@@ -18,12 +22,15 @@ CREATE TABLE IF NOT EXISTS olh_device (
     name VARCHAR(120) NOT NULL,
     device_key VARCHAR(120) NOT NULL UNIQUE,
     secret VARCHAR(120) NOT NULL,
+    connection_config JSONB NOT NULL DEFAULT '{}'::jsonb,
     location VARCHAR(160),
     status VARCHAR(24) NOT NULL DEFAULT 'offline',
     last_seen_at TIMESTAMPTZ,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
+
+ALTER TABLE olh_device ADD COLUMN IF NOT EXISTS connection_config JSONB NOT NULL DEFAULT '{}'::jsonb;
 
 CREATE TABLE IF NOT EXISTS olh_sensor (
     id BIGSERIAL PRIMARY KEY,

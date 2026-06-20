@@ -21,6 +21,8 @@ GET  /api/products/{id}
 PUT  /api/products/{id}
 ```
 
+Product payload fields include `protocolType` (`HTTP`, `MQTT`, `TCP`, `MODBUS`, `OPC_UA`) and `protocolConfig` as a JSON string. `protocolConfig` stores the product-level parser template.
+
 Devices:
 
 ```text
@@ -31,6 +33,8 @@ PUT  /api/devices/{id}
 GET  /api/devices/{id}/latest
 GET  /api/devices/{id}/telemetry?metric=temperature&start=...&end=...&limit=500
 ```
+
+Device payload fields include `connectionConfig` as a JSON string. Devices inherit the product protocol and use `connectionConfig` only for instance-level connection parameters.
 
 Sensor definitions:
 

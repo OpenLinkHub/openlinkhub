@@ -51,6 +51,9 @@ public class TelemetryService {
         if (secret != null && !secret.isBlank() && !secret.equals(device.secret())) {
             throw new ApiException(HttpStatus.UNAUTHORIZED, "Invalid device secret");
         }
+        if (!"HTTP".equalsIgnoreCase(device.productProtocolType())) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "Product protocol does not allow HTTP ingest");
+        }
 
         OffsetDateTime time = request.timestamp() == null ? OffsetDateTime.now() : request.timestamp();
         String quality = request.quality() == null || request.quality().isBlank() ? "good" : request.quality();

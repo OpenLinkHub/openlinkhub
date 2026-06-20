@@ -13,9 +13,9 @@ TimescaleDB
 The backend keeps clear module boundaries:
 
 ```text
-product      product metadata and generated thing model view
+product      product metadata, default protocol, and generated thing model view
 sensor       product-level sensor definitions
-device       device registry, product selection, and secrets
+device       device registry, product selection, secrets, and connection config
 telemetry    HTTP ingest, latest data, history data by sensor key
 rule         threshold rules
 alarm        alarm lifecycle
@@ -29,6 +29,7 @@ dashboard    summary and recent activity
 ```text
 Device HTTP POST
     -> device lookup and optional secret validation
+    -> validate the product protocol allows the current ingest path
     -> resolve the device product's sensor definitions for latest status display
     -> write olh_telemetry_data hypertable, one row per sensor metric
     -> upsert olh_telemetry_latest

@@ -88,14 +88,15 @@ public class DeviceRepository {
 
     public Device create(DeviceRequest request) {
         Long id = jdbc.sql("""
-                INSERT INTO olh_device (product_id, name, device_key, secret, location)
-                VALUES (:productId, :name, :deviceKey, :secret, :location)
+                INSERT INTO olh_device (product_id, name, device_key, secret, connection_config, location)
+                VALUES (:productId, :name, :deviceKey, :secret, CAST(:connectionConfig AS jsonb), :location)
                 RETURNING id
                 """)
                 .param("productId", request.productId())
                 .param("name", request.name())
                 .param("deviceKey", request.deviceKey())
                 .param("secret", request.secret() == null || request.secret().isBlank() ? UUID.randomUUID().toString() : request.secret())
+                .param("connectionConfig", normalizeJson(request.connectionConfig()))
                 .param("location", request.location())
                 .query(Long.class)
                 .single();
@@ -109,6 +110,7 @@ public class DeviceRepository {
                     name = :name,
                     device_key = :deviceKey,
                     secret = COALESCE(NULLIF(:secret, ''), secret),
+                    connection_config = CAST(:connectionConfig AS jsonb),
                     location = :location,
                     updated_at = NOW()
                 WHERE id = :id
@@ -118,6 +120,7 @@ public class DeviceRepository {
                 .param("name", request.name())
                 .param("deviceKey", request.deviceKey())
                 .param("secret", request.secret())
+                .param("connectionConfig", normalizeJson(request.connectionConfig()))
                 .param("location", request.location())
                 .update();
         return findByIdOrThrow(id);
@@ -141,7 +144,8 @@ public class DeviceRepository {
 
     private String baseSelect() {
         return """
-                SELECT d.id, d.product_id, p.name AS product_name, d.name, d.device_key, d.secret,
+                SELECT d.id, d.product_id, p.name AS product_name, p.protocol_type AS product_protocol_type,
+                       d.name, d.device_key, d.secret, d.connection_config::text AS connection_config,
                        d.location, d.status, d.last_seen_at, d.created_at, d.updated_at
                 FROM olh_device d
                 JOIN olh_product p ON p.id = d.product_id
@@ -153,14 +157,20 @@ public class DeviceRepository {
                 rs.getLong("id"),
                 rs.getLong("product_id"),
                 rs.getString("product_name"),
+                rs.getString("product_protocol_type"),
                 rs.getString("name"),
                 rs.getString("device_key"),
                 rs.getString("secret"),
+                rs.getString("connection_config"),
                 rs.getString("location"),
                 rs.getString("status"),
                 rs.getObject("last_seen_at", java.time.OffsetDateTime.class),
                 rs.getObject("created_at", java.time.OffsetDateTime.class),
                 rs.getObject("updated_at", java.time.OffsetDateTime.class)
         );
+    }
+
+    private String normalizeJson(String value) {
+        return value == null || value.isBlank() ? "{}" : value;
     }
 }

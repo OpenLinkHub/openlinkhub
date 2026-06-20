@@ -7,6 +7,8 @@ public record Product(
         String name,
         String code,
         String category,
+        String protocolType,
+        String protocolConfig,
         String description,
         OffsetDateTime createdAt,
         OffsetDateTime updatedAt

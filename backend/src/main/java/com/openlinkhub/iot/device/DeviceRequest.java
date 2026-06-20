@@ -8,6 +8,7 @@ public record DeviceRequest(
         @NotBlank String name,
         @NotBlank String deviceKey,
         String secret,
+        String connectionConfig,
         String location
 ) {
 }
